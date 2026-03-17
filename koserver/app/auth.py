@@ -17,7 +17,7 @@ security = HTTPBearer(auto_error=False)
 async def _validate_token_with_ha(token: str) -> bool:
     settings = get_settings()
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
             resp = await client.get(
                 f"{settings.ha_url}/api/",
                 headers={"Authorization": f"Bearer {token}"},

@@ -24,7 +24,7 @@ ports_description:
 
 options:
   api_key: ""
-  ha_url: "http://homeassistant:8123"
+  ha_url: "https://homeassistant:8123"
 
 schema:
   api_key: str
