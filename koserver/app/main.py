@@ -1,8 +1,10 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
@@ -12,7 +14,7 @@ from app.services.kobooks.storage import init_db
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
-VERSION = "0.1.1"
+VERSION = os.getenv("KOSERVER_VERSION", "dev")
 
 
 @asynccontextmanager
@@ -27,6 +29,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="KoServer", version=VERSION, lifespan=lifespan)
 
+
+@app.middleware("http")
+async def ingress_middleware(request: Request, call_next):
+    """Read HA ingress path header and set it as the ASGI root_path.
+
+    When accessed via HA ingress the supervisor sets X-Ingress-Path to the
+    URL prefix it strips before forwarding (e.g. /app/ac7e9e47_koserver).
+    Setting root_path ensures FastAPI generates correct redirect URLs.
+    """
+    ingress_path = request.headers.get("X-Ingress-Path", "").rstrip("/")
+    if ingress_path:
+        request.scope["root_path"] = ingress_path
+    return await call_next(request)
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 app.include_router(kobooks_router.router, prefix="/services/kobooks")
@@ -39,5 +56,4 @@ async def health():
 
 @app.get("/")
 async def root():
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/services/kobooks")
+    return RedirectResponse(url="services/kobooks")

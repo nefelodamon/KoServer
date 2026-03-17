@@ -1,6 +1,10 @@
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
+# Capture the version at build time
+ARG BUILD_VERSION=dev
+ENV KOSERVER_VERSION=${BUILD_VERSION}
+
 # Install dependencies
 WORKDIR /app
 COPY requirements.txt .
