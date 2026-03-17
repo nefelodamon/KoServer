@@ -20,6 +20,9 @@ data/
 .DS_Store
 Thumbs.db
 
+# Logs
+error.txt
+
 # IDE
 .vscode/
 .idea/
