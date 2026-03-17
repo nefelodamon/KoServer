@@ -16,10 +16,12 @@ _CACHE_TTL = 60.0  # seconds
 
 _COOKIE_NAME = "ko_token"
 
-# Internal HA URLs — always reachable from inside an HA add-on container.
-# Never use external/user-facing URLs here; they won't resolve inside Docker.
+# Internal HA URLs tried in order. Both HTTP and HTTPS variants are included
+# because some HA installs have SSL configured at the HA level (not just a proxy),
+# making port 8123 speak TLS even for internal connections.
 _HA_URLS = [
     "http://homeassistant:8123/api/",
+    "https://homeassistant:8123/api/",
     "http://supervisor/core/api/",
 ]
 
