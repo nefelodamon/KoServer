@@ -101,7 +101,7 @@ async def upload_archive(
                 if member.isfile():
                     dest = portrait_dir / filename
                     async with aiofiles.open(dest, "wb") as f:
-                        f.write(tf.extractfile(member).read())
+                        await f.write(tf.extractfile(member).read())
 
     # Persist to DB
     storage.upsert_book(settings.db_path, book_id, title, context)
