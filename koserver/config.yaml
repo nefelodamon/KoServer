@@ -1,5 +1,5 @@
 name: KoServer
-version: "0.1.9"
+version: "0.1.10"
 slug: koserver
 description: Host for various services including KoBooks (KOReader character viewer)
 url: https://github.com/nefelodamon/KoServer
@@ -24,11 +24,9 @@ ports_description:
 
 options:
   api_key: ""
-  ha_url: "http://homeassistant:8123"
 
 schema:
   api_key: str
-  ha_url: str
 
 image: "ghcr.io/nefelodamon/koserver-{arch}"
 

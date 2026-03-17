@@ -16,37 +16,28 @@ _CACHE_TTL = 60.0  # seconds
 
 _COOKIE_NAME = "ko_token"
 
-# Supervisor proxy is always reachable from inside an HA add-on container
-_SUPERVISOR_CORE_URL = "http://supervisor/core/api/"
+# Internal HA URLs — always reachable from inside an HA add-on container.
+# Never use external/user-facing URLs here; they won't resolve inside Docker.
+_HA_URLS = [
+    "http://homeassistant:8123/api/",
+    "http://supervisor/core/api/",
+]
 
 security = HTTPBearer(auto_error=False)
 
 
-async def _try_url(client: httpx.AsyncClient, url: str, token: str) -> bool:
-    try:
-        resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
-        logger.info("Token validation at %s → %d", url, resp.status_code)
-        return resp.status_code == 200
-    except Exception as exc:
-        logger.warning("Token validation at %s failed: %s", url, exc)
-        return False
-
-
 async def _validate_token_with_ha(token: str) -> bool:
-    settings = get_settings()
-    configured_url = f"{settings.ha_url}/api/"
-
     async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
-        # Try the user-configured URL first
-        if await _try_url(client, configured_url, token):
-            return True
-
-        # Fall back to the supervisor proxy (always available inside the container)
-        if configured_url != _SUPERVISOR_CORE_URL:
-            logger.info("Trying supervisor proxy fallback")
-            if await _try_url(client, _SUPERVISOR_CORE_URL, token):
-                return True
-
+        for url in _HA_URLS:
+            try:
+                resp = await client.get(
+                    url, headers={"Authorization": f"Bearer {token}"}
+                )
+                logger.info("Token validation at %s → %d", url, resp.status_code)
+                if resp.status_code == 200:
+                    return True
+            except Exception as exc:
+                logger.warning("Token validation at %s failed: %s", url, exc)
     return False
 
 
