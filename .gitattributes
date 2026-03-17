@@ -1,0 +1,6 @@
+# Ensure Unix line endings for all text files (Docker/HA run on Linux)
+* text=auto eol=lf
+
+# Binaries — do not touch
+*.png binary
+*.svg binary

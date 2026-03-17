@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }} — KoBooks{% endblock %}
+{% block nav_kobooks %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="/services/kobooks" class="back-link">← Library</a>
+  <h1>{{ book.title }}</h1>
+</div>
+
+{% if book.context %}
+<p class="book-context-full">{{ book.context }}</p>
+{% endif %}
+
+<div class="character-stats">
+  <span class="meta-badge">{{ characters | length }} character{{ 's' if characters | length != 1 }}</span>
+  {% set locked_count = characters | selectattr('unlocked', 'equalto', false) | list | length %}
+  {% if locked_count > 0 %}
+  <span class="meta-badge spoiler-badge">{{ locked_count }} spoiler{{ 's' if locked_count != 1 }} hidden</span>
+  {% endif %}
+</div>
+
+{% if characters %}
+<div class="character-grid">
+  {% for char in characters %}
+  <div class="character-card {% if not char.unlocked %}locked{% endif %}" data-id="{{ loop.index }}">
+
+    <div class="character-portrait-wrap {% if not char.unlocked %}spoiler-blur{% endif %}">
+      <img
+        class="character-portrait"
+        src="/services/kobooks/portraits/{{ book.book_id }}/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
+        alt="Portrait of {{ char.name }}"
+        loading="lazy"
+        onerror="this.src='/static/placeholder.svg'"
+      />
+      {% if not char.unlocked %}
+      <div class="spoiler-overlay" onclick="revealSpoiler(this)">
+        <span class="spoiler-label">🔒 Spoiler</span>
+        <span class="spoiler-hint">Click to reveal</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="character-body">
+      <div class="character-header">
+        <h3 class="character-name {% if not char.unlocked %}spoiler-text{% endif %}">{{ char.name }}</h3>
+        <span class="role-badge role-{{ char.role }}">{{ char.role }}</span>
+      </div>
+
+      {% if char.occupation %}
+      <p class="character-occupation">{{ char.occupation }}</p>
+      {% endif %}
+
+      {% if char.aliases %}
+      <p class="character-aliases">Also known as: {{ char.aliases | join(', ') }}</p>
+      {% endif %}
+
+      {% if char.personality %}
+      <p class="character-personality">{{ char.personality[:200] }}{% if char.personality | length > 200 %}…{% endif %}</p>
+      {% endif %}
+
+      <button class="expand-btn" onclick="toggleExpand(this)">Show more</button>
+
+      <div class="character-detail hidden">
+        {% if char.physical_description %}
+        <div class="detail-section">
+          <h4>Appearance</h4>
+          <p>{{ char.physical_description }}</p>
+        </div>
+        {% endif %}
+
+        {% if char.personality %}
+        <div class="detail-section">
+          <h4>Personality</h4>
+          <p>{{ char.personality }}</p>
+        </div>
+        {% endif %}
+
+        {% if char.relationships %}
+        <div class="detail-section">
+          <h4>Relationships</h4>
+          <ul class="relationship-list">
+            {% for rel in char.relationships %}
+            <li>{{ rel }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if char.first_appearance_quote %}
+        <div class="detail-section">
+          <h4>First appearance</h4>
+          <blockquote class="appearance-quote">{{ char.first_appearance_quote }}</blockquote>
+          {% if char.first_seen_page %}
+          <span class="page-ref">Page {{ char.first_seen_page }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if char.user_notes %}
+        <div class="detail-section user-notes">
+          <h4>Your notes</h4>
+          <p>{{ char.user_notes }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🕵️</div>
+  <h2>No characters found</h2>
+  <p>Re-upload the ZIP to refresh character data.</p>
+</div>
+{% endif %}
+{% endblock %}

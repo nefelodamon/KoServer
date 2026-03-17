@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}KoBooks — Library{% endblock %}
+{% block nav_kobooks %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Library</h1>
+  <span class="book-count">{{ books | length }} book{{ 's' if books | length != 1 }}</span>
+</div>
+
+{% if books %}
+<div class="book-grid">
+  {% for book in books %}
+  <a href="/services/kobooks/books/{{ book.book_id }}" class="book-card">
+    <div class="book-card-cover">
+      <span class="book-cover-icon">📖</span>
+    </div>
+    <div class="book-card-body">
+      <h2 class="book-title">{{ book.title }}</h2>
+      {% if book.context %}
+      <p class="book-context">{{ book.context[:160] }}{% if book.context | length > 160 %}…{% endif %}</p>
+      {% endif %}
+      <div class="book-meta">
+        <span class="meta-badge">{{ book.character_count }} character{{ 's' if book.character_count != 1 }}</span>
+        <span class="meta-date">{{ book.uploaded_at[:10] }}</span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📭</div>
+  <h2>No books yet</h2>
+  <p>Upload a KoCharacters ZIP export via the API to get started.</p>
+  <code class="upload-hint">POST /services/kobooks/api/upload</code>
+</div>
+{% endif %}
+{% endblock %}

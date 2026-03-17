@@ -1,0 +1,7 @@
+configuration:
+  api_key:
+    name: API Key
+    description: Secret key required for uploading data via the webhook API (used by KoCharacters plugin)
+  ha_url:
+    name: Home Assistant URL
+    description: Internal URL of your Home Assistant instance, used to validate user tokens (e.g. http://homeassistant:8123)
