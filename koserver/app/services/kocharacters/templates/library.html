@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}KoBooks — Library{% endblock %}
-{% block nav_kobooks %}active{% endblock %}
+{% block title %}KoCharacters — Library{% endblock %}
+{% block nav_kocharacters %}active{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -11,7 +11,7 @@
 {% if books %}
 <div class="book-grid">
   {% for book in books %}
-  <a href="{{ root }}/services/kobooks/books/{{ book.book_id }}" class="book-card">
+  <a href="{{ root }}/services/kocharacters/books/{{ book.book_id }}" class="book-card">
     <div class="book-card-cover">
       <span class="book-cover-icon">📖</span>
     </div>
@@ -33,7 +33,7 @@
   <div class="empty-icon">📭</div>
   <h2>No books yet</h2>
   <p>Upload a KoCharacters ZIP export via the API to get started.</p>
-  <code class="upload-hint">POST /services/kobooks/api/upload</code>
+  <code class="upload-hint">POST /services/kocharacters/api/upload</code>
 </div>
 {% endif %}
 {% endblock %}

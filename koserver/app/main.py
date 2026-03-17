@@ -10,8 +10,8 @@ from fastapi.templating import Jinja2Templates
 
 from app.auth import clear_auth_cookie, set_auth_cookie, validate_token
 from app.config import get_settings
-from app.services.kobooks import router as kobooks_router
-from app.services.kobooks.storage import init_db
+from app.services.kocharacters import router as kocharacters_router
+from app.services.kocharacters.storage import init_db
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ app = FastAPI(title="KoServer", version=VERSION, lifespan=lifespan)
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-app.include_router(kobooks_router.router, prefix="/services/kobooks")
+app.include_router(kocharacters_router.router, prefix="/services/kocharacters")
 
 
 @app.get("/health")
@@ -52,7 +52,7 @@ async def health():
 
 @app.get("/")
 async def root(request: Request):
-    return RedirectResponse(url=f"{_root(request)}/services/kobooks")
+    return RedirectResponse(url=f"{_root(request)}/services/kocharacters")
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -71,7 +71,7 @@ async def login_submit(request: Request, token: str = Form(...)):
             status_code=401,
         )
     response = RedirectResponse(
-        url=f"{_root(request)}/services/kobooks", status_code=303
+        url=f"{_root(request)}/services/kocharacters", status_code=303
     )
     set_auth_cookie(response, token)
     return response

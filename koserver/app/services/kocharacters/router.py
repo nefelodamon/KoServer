@@ -13,7 +13,7 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
 from app.auth import require_api_key, require_ha_auth
 from app.config import get_settings
-from app.services.kobooks import storage
+from app.services.kocharacters import storage
 
 _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"

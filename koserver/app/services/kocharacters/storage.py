@@ -2,7 +2,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from app.services.kobooks.models import Book, Character
+from app.services.kocharacters.models import Book, Character
 
 # Use synchronous sqlite3 — simple and sufficient for this workload.
 

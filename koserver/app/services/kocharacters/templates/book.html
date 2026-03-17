@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ book.title }} — KoBooks{% endblock %}
-{% block nav_kobooks %}active{% endblock %}
+{% block title %}{{ book.title }} — KoCharacters{% endblock %}
+{% block nav_kocharacters %}active{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <a href="{{ root }}/services/kobooks" class="back-link">← Library</a>
+  <a href="{{ root }}/services/kocharacters" class="back-link">← Library</a>
   <h1>{{ book.title }}</h1>
 </div>
 
@@ -28,7 +28,7 @@
     <div class="character-portrait-wrap {% if not char.unlocked %}spoiler-blur{% endif %}">
       <img
         class="character-portrait"
-        src="{{ root }}/services/kobooks/portraits/{{ book.book_id }}/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
+        src="{{ root }}/services/kocharacters/portraits/{{ book.book_id }}/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
         alt="Portrait of {{ char.name }}"
         loading="lazy"
         onerror="this.src='{{ root }}/static/placeholder.svg'"
