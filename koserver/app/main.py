@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -39,7 +40,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="KoServer", version=VERSION, lifespan=lifespan)
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["X-Api-Key", "Authorization", "Content-Type"],
+)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(kocharacters_router.router, prefix="/services/kocharacters")
