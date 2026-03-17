@@ -40,14 +40,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="KoServer", version=VERSION, lifespan=lifespan)
 
 
-@app.middleware("http")
-async def ingress_middleware(request: Request, call_next):
-    """Set ASGI root_path from HA ingress header so all URL helpers use the correct prefix."""
-    ingress_path = request.headers.get("X-Ingress-Path", "").rstrip("/")
-    if ingress_path:
-        request.scope["root_path"] = ingress_path
-    return await call_next(request)
-
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(kobooks_router.router, prefix="/services/kobooks")

@@ -1,5 +1,5 @@
 name: KoServer
-version: "0.1.14"
+version: "0.1.15"
 slug: koserver
 description: Host for various services including KoBooks (KOReader character viewer)
 url: https://github.com/nefelodamon/KoServer
@@ -13,8 +13,6 @@ arch:
 startup: application
 boot: auto
 
-ingress: true
-ingress_port: 8099
 panel_icon: mdi:bookshelf
 
 ports:
@@ -24,11 +22,16 @@ ports_description:
 
 options:
   api_key: ""
+  ssl_certificate: /ssl/fullchain.pem
+  ssl_key: /ssl/privkey.pem
 
 schema:
   api_key: str
+  ssl_certificate: str
+  ssl_key: str
 
 image: "ghcr.io/nefelodamon/koserver-{arch}"
 
 map:
   - data:rw
+  - ssl:ro
