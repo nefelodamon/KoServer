@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Annotated
 
@@ -7,26 +8,46 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import get_settings
 
+logger = logging.getLogger(__name__)
+
 # In-memory token cache: token -> (valid: bool, expires_at: float)
 _token_cache: dict[str, tuple[bool, float]] = {}
 _CACHE_TTL = 60.0  # seconds
 
 _COOKIE_NAME = "ko_token"
 
+# Supervisor proxy is always reachable from inside an HA add-on container
+_SUPERVISOR_CORE_URL = "http://supervisor/core/api/"
+
 security = HTTPBearer(auto_error=False)
+
+
+async def _try_url(client: httpx.AsyncClient, url: str, token: str) -> bool:
+    try:
+        resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+        logger.info("Token validation at %s → %d", url, resp.status_code)
+        return resp.status_code == 200
+    except Exception as exc:
+        logger.warning("Token validation at %s failed: %s", url, exc)
+        return False
 
 
 async def _validate_token_with_ha(token: str) -> bool:
     settings = get_settings()
-    try:
-        async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
-            resp = await client.get(
-                f"{settings.ha_url}/api/",
-                headers={"Authorization": f"Bearer {token}"},
-            )
-            return resp.status_code == 200
-    except Exception:
-        return False
+    configured_url = f"{settings.ha_url}/api/"
+
+    async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
+        # Try the user-configured URL first
+        if await _try_url(client, configured_url, token):
+            return True
+
+        # Fall back to the supervisor proxy (always available inside the container)
+        if configured_url != _SUPERVISOR_CORE_URL:
+            logger.info("Trying supervisor proxy fallback")
+            if await _try_url(client, _SUPERVISOR_CORE_URL, token):
+                return True
+
+    return False
 
 
 async def validate_token(token: str) -> bool:
