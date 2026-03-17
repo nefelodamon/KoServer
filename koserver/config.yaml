@@ -2,7 +2,7 @@ name: KoServer
 version: "0.1.0"
 slug: koserver
 description: Host for various services including KoBooks (KOReader character viewer)
-url: https://github.com/your-org/KoServer
+url: https://github.com/nefelodamon/KoServer
 arch:
   - aarch64
   - amd64
