@@ -1,5 +1,5 @@
 name: KoServer
-version: "0.1.6"
+version: "0.1.7"
 slug: koserver
 description: Host for various services including KoBooks (KOReader character viewer)
 url: https://github.com/nefelodamon/KoServer
@@ -29,6 +29,8 @@ options:
 schema:
   api_key: str
   ha_url: str
+
+image: "ghcr.io/nefelodamon/koserver-{arch}:{version}"
 
 map:
   - data:rw
