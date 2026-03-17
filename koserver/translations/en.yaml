@@ -4,4 +4,4 @@ configuration:
     description: Secret key required for uploading data via the webhook API (used by KoCharacters plugin)
   ha_url:
     name: Home Assistant URL
-    description: Internal URL of your Home Assistant instance, used to validate user tokens (e.g. https://homeassistant:8123). SSL certificates are not verified, so both http:// and https:// work.
+    description: "Internal HTTP URL of your HA instance used to validate tokens. Always use http:// here — inside the container HA Core is HTTP even if your external URL is HTTPS. Default: http://homeassistant:8123"
