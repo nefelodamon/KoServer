@@ -3,7 +3,6 @@ from typing import Annotated
 
 import httpx
 from fastapi import Cookie, Depends, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import get_settings
@@ -43,6 +42,14 @@ async def validate_token(token: str) -> bool:
     return valid
 
 
+def _login_url(request: Request, error: str = "") -> str:
+    root = request.scope.get("root_path", "").rstrip("/")
+    url = f"{root}/login"
+    if error:
+        url += f"?error={error}"
+    return url
+
+
 async def require_ha_auth(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
@@ -57,11 +64,10 @@ async def require_ha_auth(
         token = ko_token
 
     if not token:
-        # Browser request with no token — redirect to login page
         if "text/html" in request.headers.get("accept", ""):
             raise HTTPException(
                 status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-                headers={"Location": "/login"},
+                headers={"Location": _login_url(request)},
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -73,7 +79,7 @@ async def require_ha_auth(
         if "text/html" in request.headers.get("accept", ""):
             raise HTTPException(
                 status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-                headers={"Location": "/login?error=invalid"},
+                headers={"Location": _login_url(request, "invalid")},
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

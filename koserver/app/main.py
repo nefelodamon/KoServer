@@ -22,6 +22,11 @@ VERSION = os.getenv("KOSERVER_VERSION", "dev")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
+def _root(request: Request) -> str:
+    """Return the ingress root path prefix (e.g. /app/ac7e9e47_koserver)."""
+    return request.scope.get("root_path", "").rstrip("/")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("KoServer starting %s", VERSION)
@@ -37,7 +42,7 @@ app = FastAPI(title="KoServer", version=VERSION, lifespan=lifespan)
 
 @app.middleware("http")
 async def ingress_middleware(request: Request, call_next):
-    """Set ASGI root_path from HA ingress header so redirects use the correct prefix."""
+    """Set ASGI root_path from HA ingress header so all URL helpers use the correct prefix."""
     ingress_path = request.headers.get("X-Ingress-Path", "").rstrip("/")
     if ingress_path:
         request.scope["root_path"] = ingress_path
@@ -54,8 +59,8 @@ async def health():
 
 
 @app.get("/")
-async def root():
-    return RedirectResponse(url="services/kobooks")
+async def root(request: Request):
+    return RedirectResponse(url=f"{_root(request)}/services/kobooks")
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -73,13 +78,15 @@ async def login_submit(request: Request, token: str = Form(...)):
             {"request": request, "error": "invalid"},
             status_code=401,
         )
-    response = RedirectResponse(url="services/kobooks", status_code=303)
+    response = RedirectResponse(
+        url=f"{_root(request)}/services/kobooks", status_code=303
+    )
     set_auth_cookie(response, token)
     return response
 
 
 @app.get("/logout")
-async def logout():
-    response = RedirectResponse(url="login")
+async def logout(request: Request):
+    response = RedirectResponse(url=f"{_root(request)}/login")
     clear_auth_cookie(response)
     return response
