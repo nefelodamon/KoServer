@@ -1,7 +1,7 @@
 import io
 import json
 import re
-import zipfile
+import tarfile
 from pathlib import Path
 from typing import Annotated
 
@@ -40,50 +40,53 @@ def _book_id_from_name(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/api/upload", status_code=status.HTTP_200_OK)
-async def upload_zip(
-    file: Annotated[UploadFile, File(description="KoCharacters ZIP export")],
+async def upload_archive(
+    file: Annotated[UploadFile, File(description="KoCharacters tar.gz export")],
     _: Annotated[None, Depends(require_api_key)],
 ):
     settings = get_settings()
 
-    if not file.filename or not file.filename.lower().endswith(".zip"):
-        raise HTTPException(status_code=400, detail="Uploaded file must be a .zip")
+    if not file.filename or not file.filename.lower().endswith(".tar.gz"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be a .tar.gz")
 
     raw = await file.read()
     try:
-        zf = zipfile.ZipFile(io.BytesIO(raw))
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="File is not a valid ZIP archive")
+        tf = tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz")
+    except tarfile.TarError:
+        raise HTTPException(status_code=400, detail="File is not a valid tar.gz archive")
 
-    names = zf.namelist()
+    names = tf.getnames()
 
     # Locate characters.json (may be at root or inside a single subdirectory)
     json_candidates = [n for n in names if n.endswith("characters.json")]
     if not json_candidates:
-        raise HTTPException(status_code=400, detail="characters.json not found in ZIP")
+        raise HTTPException(status_code=400, detail="characters.json not found in archive")
 
     json_path = sorted(json_candidates, key=len)[0]  # prefer shortest (root level)
     prefix = json_path[: -len("characters.json")]     # e.g. "" or "Heresy_7708/"
 
     # Parse characters.json
     try:
-        characters_raw = json.loads(zf.read(json_path).decode("utf-8"))
+        member = tf.getmember(json_path)
+        characters_raw = json.loads(tf.extractfile(member).read().decode("utf-8"))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse characters.json: {exc}")
 
     if not isinstance(characters_raw, list):
         raise HTTPException(status_code=400, detail="characters.json must be a JSON array")
 
-    # Derive book_id and title
-    zip_stem = Path(file.filename).stem                         # e.g. "Heresy_7708"
-    book_id = _book_id_from_name(zip_stem or prefix.strip("/"))
-    title = zip_stem.replace("_", " ").rsplit(" ", 1)[0] if "_" in zip_stem else zip_stem
+    # Derive book_id and title from filename stem (strip .tar.gz)
+    fname = file.filename
+    if fname.lower().endswith(".tar.gz"):
+        fname = fname[:-7]
+    book_id = _book_id_from_name(fname or prefix.strip("/"))
+    title = fname.replace("_", " ").rsplit(" ", 1)[0] if "_" in fname else fname
 
     # Read optional book_context.txt
     context = ""
     context_path = f"{prefix}book_context.txt"
     if context_path in names:
-        context = zf.read(context_path).decode("utf-8", errors="replace").strip()
+        context = tf.extractfile(tf.getmember(context_path)).read().decode("utf-8", errors="replace").strip()
 
     # Extract portraits
     portrait_dir = settings.portraits_dir / book_id
@@ -94,9 +97,11 @@ async def upload_zip(
         if name.startswith(portrait_prefix) and name != portrait_prefix:
             filename = Path(name).name
             if filename:
-                dest = portrait_dir / filename
-                async with aiofiles.open(dest, "wb") as f:
-                    f.write(zf.read(name))
+                member = tf.getmember(name)
+                if member.isfile():
+                    dest = portrait_dir / filename
+                    async with aiofiles.open(dest, "wb") as f:
+                        f.write(tf.extractfile(member).read())
 
     # Persist to DB
     storage.upsert_book(settings.db_path, book_id, title, context)
