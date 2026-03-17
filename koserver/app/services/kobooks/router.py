@@ -8,8 +8,8 @@ from typing import Annotated
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse
-from jinja2 import ChoiceLoader, FileSystemLoader
 from fastapi.templating import Jinja2Templates
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
 from app.auth import require_api_key, require_ha_auth
 from app.config import get_settings
@@ -18,19 +18,14 @@ from app.services.kobooks import storage
 _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"
 
-templates = Jinja2Templates(env=None)  # placeholder; configured below
-templates.env = templates.env  # satisfy type checker
-
-# Build a Jinja2 env that searches service templates first, then shared base templates
-from jinja2 import Environment
-_env = Environment(
+# Search service templates first, then shared base templates
+templates = Jinja2Templates(env=Environment(
     loader=ChoiceLoader([
         FileSystemLoader(str(_SERVICE_TEMPLATES)),
         FileSystemLoader(str(_BASE_TEMPLATES)),
     ]),
     autoescape=True,
-)
-templates = Jinja2Templates(env=_env)
+))
 
 router = APIRouter()
 
