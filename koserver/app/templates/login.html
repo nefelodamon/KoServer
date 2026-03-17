@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KoServer — Login</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">
+      <span>📚</span>
+      <h1>KoServer</h1>
+    </div>
+
+    {% if error %}
+    <div class="login-error">
+      {% if error == "invalid" %}
+        Invalid token — please check and try again.
+      {% else %}
+        Authentication required.
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="login" class="login-form">
+      <label for="token">Home Assistant long-lived access token</label>
+      <input
+        id="token"
+        name="token"
+        type="password"
+        placeholder="Paste your token here"
+        required
+        autofocus
+      />
+      <p class="login-hint">
+        Generate one in HA → Profile → Security → Long-lived access tokens
+      </p>
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

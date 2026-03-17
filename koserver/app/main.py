@@ -3,10 +3,12 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
+from app.auth import clear_auth_cookie, set_auth_cookie, validate_token
 from app.config import get_settings
 from app.services.kobooks import router as kobooks_router
 from app.services.kobooks.storage import init_db
@@ -14,7 +16,10 @@ from app.services.kobooks.storage import init_db
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 VERSION = os.getenv("KOSERVER_VERSION", "dev")
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 @asynccontextmanager
@@ -32,12 +37,7 @@ app = FastAPI(title="KoServer", version=VERSION, lifespan=lifespan)
 
 @app.middleware("http")
 async def ingress_middleware(request: Request, call_next):
-    """Read HA ingress path header and set it as the ASGI root_path.
-
-    When accessed via HA ingress the supervisor sets X-Ingress-Path to the
-    URL prefix it strips before forwarding (e.g. /app/ac7e9e47_koserver).
-    Setting root_path ensures FastAPI generates correct redirect URLs.
-    """
+    """Set ASGI root_path from HA ingress header so redirects use the correct prefix."""
     ingress_path = request.headers.get("X-Ingress-Path", "").rstrip("/")
     if ingress_path:
         request.scope["root_path"] = ingress_path
@@ -45,7 +45,6 @@ async def ingress_middleware(request: Request, call_next):
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
 app.include_router(kobooks_router.router, prefix="/services/kobooks")
 
 
@@ -57,3 +56,30 @@ async def health():
 @app.get("/")
 async def root():
     return RedirectResponse(url="services/kobooks")
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, error: str = ""):
+    return templates.TemplateResponse(
+        "login.html", {"request": request, "error": error}
+    )
+
+
+@app.post("/login")
+async def login_submit(request: Request, token: str = Form(...)):
+    if not await validate_token(token):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "invalid"},
+            status_code=401,
+        )
+    response = RedirectResponse(url="services/kobooks", status_code=303)
+    set_auth_cookie(response, token)
+    return response
+
+
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="login")
+    clear_auth_cookie(response)
+    return response
