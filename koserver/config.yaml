@@ -30,7 +30,7 @@ schema:
   api_key: str
   ha_url: str
 
-image: "ghcr.io/nefelodamon/koserver-{arch}:{version}"
+image: "ghcr.io/nefelodamon/koserver-{arch}"
 
 map:
   - data:rw
