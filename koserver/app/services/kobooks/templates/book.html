@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="page-header">
-  <a href="/services/kobooks" class="back-link">← Library</a>
+  <a href="{{ root }}/services/kobooks" class="back-link">← Library</a>
   <h1>{{ book.title }}</h1>
 </div>
 
@@ -28,10 +28,10 @@
     <div class="character-portrait-wrap {% if not char.unlocked %}spoiler-blur{% endif %}">
       <img
         class="character-portrait"
-        src="/services/kobooks/portraits/{{ book.book_id }}/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
+        src="{{ root }}/services/kobooks/portraits/{{ book.book_id }}/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
         alt="Portrait of {{ char.name }}"
         loading="lazy"
-        onerror="this.src='/static/placeholder.svg'"
+        onerror="this.src='{{ root }}/static/placeholder.svg'"
       />
       {% if not char.unlocked %}
       <div class="spoiler-overlay" onclick="revealSpoiler(this)">

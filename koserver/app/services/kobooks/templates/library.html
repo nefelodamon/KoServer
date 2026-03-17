@@ -11,7 +11,7 @@
 {% if books %}
 <div class="book-grid">
   {% for book in books %}
-  <a href="/services/kobooks/books/{{ book.book_id }}" class="book-card">
+  <a href="{{ root }}/services/kobooks/books/{{ book.book_id }}" class="book-card">
     <div class="book-card-cover">
       <span class="book-cover-icon">📖</span>
     </div>

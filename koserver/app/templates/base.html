@@ -1,10 +1,11 @@
+{% set root = request.scope.get("root_path", "").rstrip("/") %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}KoServer{% endblock %}</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="{{ root }}/static/style.css" />
 </head>
 <body>
   <nav class="sidebar">
@@ -14,14 +15,14 @@
     </div>
     <ul class="sidebar-nav">
       <li>
-        <a href="/services/kobooks" class="nav-link {% block nav_kobooks %}{% endblock %}">
+        <a href="{{ root }}/services/kobooks" class="nav-link {% block nav_kobooks %}{% endblock %}">
           <span class="nav-icon">🔖</span> KoBooks
         </a>
       </li>
       {# Future services inserted here #}
     </ul>
     <div class="sidebar-footer">
-      <a href="/logout" class="nav-link">
+      <a href="{{ root }}/logout" class="nav-link">
         <span class="nav-icon">🚪</span> Sign out
       </a>
     </div>
@@ -31,7 +32,7 @@
     {% block content %}{% endblock %}
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="{{ root }}/static/app.js"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

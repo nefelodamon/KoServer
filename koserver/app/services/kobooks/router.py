@@ -149,6 +149,22 @@ async def book_detail(
     )
 
 
+@router.get("/debug", response_class=HTMLResponse)
+async def debug(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    books = storage.list_books(settings.db_path)
+    all_characters = {
+        book.book_id: storage.get_characters(settings.db_path, book.book_id)
+        for book in books
+    }
+    return templates.TemplateResponse(
+        "debug.html", {"request": request, "books": books, "all_characters": all_characters}
+    )
+
+
 @router.get("/portraits/{book_id}/{filename}")
 async def serve_portrait(
     book_id: str,
