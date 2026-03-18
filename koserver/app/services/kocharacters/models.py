@@ -6,6 +6,7 @@ from typing import Optional
 class Character:
     id: Optional[int]
     book_id: str
+    character_id: str
     name: str
     aliases: list[str] = field(default_factory=list)
     role: str = "unknown"

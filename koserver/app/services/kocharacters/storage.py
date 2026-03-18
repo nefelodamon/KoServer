@@ -18,6 +18,16 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _unique_is_name_based(conn: sqlite3.Connection) -> bool:
+    """Return True if the characters table still has the old UNIQUE(book_id, name) constraint."""
+    sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='characters'"
+    ).fetchone()
+    if not sql:
+        return False
+    return "UNIQUE(book_id, name)" in (sql[0] or "")
+
+
 async def init_db(db_path: Path) -> None:
     conn = _connect(db_path)
     conn.executescript("""
@@ -53,6 +63,7 @@ async def init_db(db_path: Path) -> None:
         CREATE TABLE IF NOT EXISTS characters (
             id                   INTEGER PRIMARY KEY AUTOINCREMENT,
             book_id              TEXT    NOT NULL REFERENCES books(book_id) ON DELETE CASCADE,
+            character_id         TEXT    NOT NULL DEFAULT '',
             name                 TEXT    NOT NULL,
             aliases              TEXT    NOT NULL DEFAULT '[]',
             role                 TEXT    NOT NULL DEFAULT 'unknown',
@@ -67,10 +78,49 @@ async def init_db(db_path: Path) -> None:
             first_seen_page      INTEGER,
             unlocked             INTEGER NOT NULL DEFAULT 1,
             needs_cleanup        INTEGER NOT NULL DEFAULT 0,
-            UNIQUE(book_id, name)
+            UNIQUE(book_id, character_id)
         );
     """)
     conn.commit()
+    # Migration: recreate characters table to change UNIQUE constraint
+    # from (book_id, name) to (book_id, character_id) and add character_id column.
+    existing_cols = {
+        row[1] for row in conn.execute("PRAGMA table_info(characters)").fetchall()
+    }
+    if "character_id" not in existing_cols or _unique_is_name_based(conn):
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS characters_new (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id              TEXT    NOT NULL REFERENCES books(book_id) ON DELETE CASCADE,
+                character_id         TEXT    NOT NULL DEFAULT '',
+                name                 TEXT    NOT NULL,
+                aliases              TEXT    NOT NULL DEFAULT '[]',
+                role                 TEXT    NOT NULL DEFAULT 'unknown',
+                occupation           TEXT    NOT NULL DEFAULT '',
+                physical_description TEXT    NOT NULL DEFAULT '',
+                personality          TEXT    NOT NULL DEFAULT '',
+                relationships        TEXT    NOT NULL DEFAULT '[]',
+                first_appearance_quote TEXT  NOT NULL DEFAULT '',
+                user_notes           TEXT    NOT NULL DEFAULT '',
+                portrait_file        TEXT    NOT NULL DEFAULT '',
+                source_page          INTEGER,
+                first_seen_page      INTEGER,
+                unlocked             INTEGER NOT NULL DEFAULT 1,
+                needs_cleanup        INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(book_id, character_id)
+            );
+            INSERT INTO characters_new
+                SELECT id, book_id,
+                    CASE WHEN character_id != '' THEN character_id ELSE name END,
+                    name, aliases, role, occupation, physical_description,
+                    personality, relationships, first_appearance_quote,
+                    user_notes, portrait_file, source_page, first_seen_page,
+                    unlocked, needs_cleanup
+                FROM characters;
+            DROP TABLE characters;
+            ALTER TABLE characters_new RENAME TO characters;
+        """)
+        conn.commit()
     # Migrations: add columns that may not exist in older databases
     _migrations = [
         "ALTER TABLE books ADD COLUMN deleted_at TEXT DEFAULT NULL",
@@ -150,6 +200,7 @@ def _row_to_character(row: sqlite3.Row) -> Character:
     return Character(
         id=row["id"],
         book_id=row["book_id"],
+        character_id=row["character_id"],
         name=row["name"],
         aliases=json.loads(row["aliases"]),
         role=row["role"],
@@ -226,12 +277,17 @@ def upsert_book(
 def upsert_characters(db_path: Path, book_id: str, characters: list[dict]) -> None:
     conn = _connect(db_path)
     # Delete characters no longer in the upload, then upsert present ones.
-    incoming_names = [c.get("name", "") for c in characters if c.get("name")]
-    if incoming_names:
-        placeholders = ",".join("?" * len(incoming_names))
+    # Use character_id for stable identity; fall back to name if id absent.
+    incoming_ids = [
+        str(c.get("id") or c.get("name", "")).strip()
+        for c in characters
+        if (c.get("id") or c.get("name", "")).strip()
+    ]
+    if incoming_ids:
+        placeholders = ",".join("?" * len(incoming_ids))
         conn.execute(
-            f"DELETE FROM characters WHERE book_id = ? AND name NOT IN ({placeholders})",
-            [book_id, *incoming_names],
+            f"DELETE FROM characters WHERE book_id = ? AND character_id NOT IN ({placeholders})",
+            [book_id, *incoming_ids],
         )
     else:
         conn.execute("DELETE FROM characters WHERE book_id = ?", (book_id,))
@@ -240,14 +296,16 @@ def upsert_characters(db_path: Path, book_id: str, characters: list[dict]) -> No
         name = c.get("name", "").strip()
         if not name:
             continue
+        character_id = str(c.get("id") or name).strip()
         conn.execute("""
             INSERT INTO characters (
-                book_id, name, aliases, role, occupation,
+                book_id, character_id, name, aliases, role, occupation,
                 physical_description, personality, relationships,
                 first_appearance_quote, user_notes, portrait_file,
                 source_page, first_seen_page, unlocked, needs_cleanup
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(book_id, name) DO UPDATE SET
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(book_id, character_id) DO UPDATE SET
+                name                 = excluded.name,
                 aliases              = excluded.aliases,
                 role                 = excluded.role,
                 occupation           = excluded.occupation,
@@ -267,6 +325,7 @@ def upsert_characters(db_path: Path, book_id: str, characters: list[dict]) -> No
                 needs_cleanup        = excluded.needs_cleanup
         """, (
             book_id,
+            character_id,
             name,
             json.dumps(c.get("aliases") or []),
             c.get("role") or "unknown",
