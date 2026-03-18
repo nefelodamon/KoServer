@@ -1,3 +1,4 @@
+import asyncio
 import io
 import json
 import logging
@@ -10,7 +11,7 @@ from typing import Annotated
 import aiofiles
 from PIL import Image
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
@@ -199,23 +200,34 @@ async def settings_page(
     )
 
 
-@router.post("/settings/regenerate-thumbnails")
-async def regenerate_thumbnails(
-    request: Request,
+@router.get("/settings/regenerate-thumbnails/stream")
+async def regenerate_thumbnails_stream(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
     thumb_size = int(storage.get_setting(
         settings.kocharacters_db_path, THUMBNAIL_SIZE_KEY, str(DEFAULT_THUMBNAIL_SIZE)
     ))
-    count = 0
-    for portrait_file in settings.portraits_dir.rglob("*"):
-        if portrait_file.is_file() and "thumbnails" not in portrait_file.parts:
-            _make_thumbnail(portrait_file, thumb_size)
-            count += 1
-    logger.info("Regenerated %d thumbnails at %dpx", count, thumb_size)
-    root = request.scope.get("root_path", "").rstrip("/")
-    return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
+
+    async def generate():
+        files = [
+            f for f in settings.portraits_dir.rglob("*")
+            if f.is_file() and "thumbnails" not in f.parts
+        ]
+        total = len(files)
+        yield f"data: {json.dumps({'done': 0, 'total': total})}\n\n"
+        loop = asyncio.get_event_loop()
+        for i, portrait_file in enumerate(files, 1):
+            await loop.run_in_executor(None, _make_thumbnail, portrait_file, thumb_size)
+            yield f"data: {json.dumps({'done': i, 'total': total, 'file': portrait_file.name})}\n\n"
+        logger.info("Regenerated %d thumbnails at %dpx", total, thumb_size)
+        yield f"data: {json.dumps({'done': total, 'total': total, 'complete': True})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/settings/save")

@@ -20,15 +20,63 @@
     </div>
     <button type="submit" class="btn-primary">Save</button>
   </form>
-  <form method="post" action="{{ root }}/services/kocharacters/settings/regenerate-thumbnails"
-        style="margin-top:1rem"
-        onsubmit="return confirm('Regenerate all thumbnails at {{ thumbnail_size }}px? This may take a moment.')">
-    <button type="submit" class="btn-restore">Regenerate all thumbnails</button>
-  </form>
+  <div style="margin-top:1rem">
+    <button id="regen-btn" type="button" class="btn-restore">Regenerate all thumbnails</button>
+  </div>
+
+  <div id="regen-progress" style="display:none; margin-top:1rem">
+    <div class="progress-wrap" style="margin-bottom:0.5rem">
+      <div class="progress-bar-bg" style="height:10px; flex:1">
+        <div id="regen-bar" class="progress-bar-fill" style="width:0%; height:10px; transition:width 0.2s"></div>
+      </div>
+      <span id="regen-pct" class="progress-pct">0%</span>
+    </div>
+    <p id="regen-label" class="empty-note">Starting…</p>
+  </div>
+
   <p class="empty-note" style="margin-top:0.75rem">
     Portraits are square; larger sizes are sharper but use more storage.
   </p>
 </section>
+
+{% block scripts %}
+<script>
+document.getElementById('regen-btn').addEventListener('click', function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  document.getElementById('regen-progress').style.display = 'block';
+
+  const bar   = document.getElementById('regen-bar');
+  const pct   = document.getElementById('regen-pct');
+  const label = document.getElementById('regen-label');
+
+  const es = new EventSource('{{ root }}/services/kocharacters/settings/regenerate-thumbnails/stream');
+
+  es.onmessage = function (e) {
+    const d = JSON.parse(e.data);
+    const p = d.total > 0 ? Math.round(d.done / d.total * 100) : 0;
+    bar.style.width = p + '%';
+    pct.textContent = p + '%';
+    if (d.complete) {
+      es.close();
+      label.textContent = 'Done — ' + d.total + ' thumbnail' + (d.total !== 1 ? 's' : '') + ' regenerated.';
+      btn.textContent = 'Regenerate all thumbnails';
+      btn.disabled = false;
+    } else {
+      label.textContent = d.done + ' / ' + d.total + (d.file ? ' — ' + d.file : '');
+    }
+  };
+
+  es.onerror = function () {
+    es.close();
+    label.textContent = 'Error — check add-on logs.';
+    btn.textContent = 'Regenerate all thumbnails';
+    btn.disabled = false;
+  };
+});
+</script>
+{% endblock %}
 
 <section class="settings-section">
   <div class="settings-section-header">
