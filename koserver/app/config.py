@@ -15,8 +15,9 @@ class Settings:
         self.share_dir: Path = Path("/share/koserver")
         self.kocharacters_dir: Path = self.share_dir / "kocharacters"
         self.portraits_dir: Path = self.kocharacters_dir / "portraits"
-        self.db_path: Path = self.kocharacters_dir / "kocharacters.db"
+        self.kocharacters_db_path: Path = self.kocharacters_dir / "kocharacters.db"
         self.kostats_dir: Path = self.share_dir / "kostats"
+        self.kostats_db_path: Path = self.kostats_dir / "kostats.db"
         self.kosync_dir: Path = self.share_dir / "kosync"
         self.kosync_db_path: Path = self.kosync_dir / "kosync.db"
 

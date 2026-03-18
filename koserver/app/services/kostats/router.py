@@ -51,7 +51,7 @@ def _require_dav_auth(
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     settings = get_settings()
-    if not storage.authenticate(settings.db_path, username, password):
+    if not storage.authenticate(settings.kostats_db_path, username, password):
         raise HTTPException(
             status_code=401,
             headers={"WWW-Authenticate": 'Basic realm="KoStats"'},
@@ -250,7 +250,7 @@ async def dashboard(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    users = storage.list_users(settings.db_path)
+    users = storage.list_users(settings.kostats_db_path)
     user_files: dict[str, list[UploadedFile]] = {}
     for user in users:
         d = settings.kostats_dir / user.username
@@ -268,7 +268,7 @@ async def settings_page(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    users = storage.list_users(settings.db_path)
+    users = storage.list_users(settings.kostats_db_path)
     return templates.TemplateResponse(
         "settings.html", {"request": request, "users": users}
     )
@@ -285,7 +285,7 @@ async def create_user(
     password = str(form.get("password", "")).strip()
     root = request.scope.get("root_path", "").rstrip("/")
     if username and password:
-        storage.create_user(settings.db_path, username, password)
+        storage.create_user(settings.kostats_db_path, username, password)
     return RedirectResponse(url=f"{root}/services/kostats/settings", status_code=303)
 
 
@@ -296,7 +296,7 @@ async def delete_user(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    storage.delete_user(settings.db_path, username)
+    storage.delete_user(settings.kostats_db_path, username)
     import shutil
     user_dir = settings.kostats_dir / username
     if user_dir.exists():
@@ -315,6 +315,6 @@ async def change_password(
     form = await request.form()
     new_password = str(form.get("password", "")).strip()
     if new_password:
-        storage.change_password(settings.db_path, username, new_password)
+        storage.change_password(settings.kostats_db_path, username, new_password)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kostats/settings", status_code=303)

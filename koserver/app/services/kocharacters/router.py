@@ -124,8 +124,8 @@ async def upload_archive(
                     _make_thumbnail(dest)
 
     # Persist to DB
-    storage.upsert_book(settings.db_path, book_id, title, context)
-    storage.upsert_characters(settings.db_path, book_id, characters_raw)
+    storage.upsert_book(settings.kocharacters_db_path, book_id, title, context)
+    storage.upsert_characters(settings.kocharacters_db_path, book_id, characters_raw)
 
     return {
         "status": "ok",
@@ -146,7 +146,7 @@ async def library(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    books = storage.list_books(settings.db_path)
+    books = storage.list_books(settings.kocharacters_db_path)
     return templates.TemplateResponse(
         "library.html", {"request": request, "books": books}
     )
@@ -159,10 +159,10 @@ async def book_detail(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    book = storage.get_book(settings.db_path, book_id)
+    book = storage.get_book(settings.kocharacters_db_path, book_id)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
-    characters = storage.get_characters(settings.db_path, book_id)
+    characters = storage.get_characters(settings.kocharacters_db_path, book_id)
     return templates.TemplateResponse(
         "book.html",
         {"request": request, "book": book, "characters": characters},
@@ -176,7 +176,7 @@ async def delete_book(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    storage.soft_delete_book(settings.db_path, book_id)
+    storage.soft_delete_book(settings.kocharacters_db_path, book_id)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kocharacters", status_code=303)
 
@@ -187,7 +187,7 @@ async def settings_page(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    deleted_books = storage.list_deleted_books(settings.db_path)
+    deleted_books = storage.list_deleted_books(settings.kocharacters_db_path)
     return templates.TemplateResponse(
         "settings.html", {"request": request, "deleted_books": deleted_books}
     )
@@ -200,7 +200,7 @@ async def restore_book(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    storage.restore_book(settings.db_path, book_id)
+    storage.restore_book(settings.kocharacters_db_path, book_id)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
 
@@ -212,7 +212,7 @@ async def purge_book(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    if storage.purge_book(settings.db_path, book_id):
+    if storage.purge_book(settings.kocharacters_db_path, book_id):
         portrait_dir = settings.portraits_dir / book_id
         if portrait_dir.exists():
             shutil.rmtree(portrait_dir)
@@ -226,7 +226,7 @@ async def purge_all(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    purged_ids = storage.purge_all_deleted(settings.db_path)
+    purged_ids = storage.purge_all_deleted(settings.kocharacters_db_path)
     for book_id in purged_ids:
         portrait_dir = settings.portraits_dir / book_id
         if portrait_dir.exists():
@@ -241,9 +241,9 @@ async def debug(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    books = storage.list_books(settings.db_path)
+    books = storage.list_books(settings.kocharacters_db_path)
     all_characters = {
-        book.book_id: storage.get_characters(settings.db_path, book.book_id)
+        book.book_id: storage.get_characters(settings.kocharacters_db_path, book.book_id)
         for book in books
     }
     return templates.TemplateResponse(
