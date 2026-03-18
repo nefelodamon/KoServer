@@ -13,8 +13,9 @@ class Settings:
         self.ssl_key: str = options.get("ssl_key", os.getenv("SSL_KEY", "/ssl/privkey.pem"))
         self.data_dir: Path = Path(os.getenv("DATA_DIR", "/data"))
         self.share_dir: Path = Path("/share/koserver")
-        self.portraits_dir: Path = self.share_dir / "portraits"
-        self.db_path: Path = self.share_dir / "koserver.db"
+        self.kocharacters_dir: Path = self.share_dir / "kocharacters"
+        self.portraits_dir: Path = self.kocharacters_dir / "portraits"
+        self.db_path: Path = self.kocharacters_dir / "kocharacters.db"
         self.kostats_dir: Path = self.share_dir / "kostats"
         self.kosync_dir: Path = self.share_dir / "kosync"
         self.kosync_db_path: Path = self.kosync_dir / "kosync.db"

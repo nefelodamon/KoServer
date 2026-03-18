@@ -64,7 +64,6 @@ async def lifespan(app: FastAPI):
     settings.portraits_dir.mkdir(parents=True, exist_ok=True)
     settings.kostats_dir.mkdir(parents=True, exist_ok=True)
     settings.kosync_dir.mkdir(parents=True, exist_ok=True)
-    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     await init_kocharacters_db(settings.db_path)
     await init_kosync_db(settings.kosync_db_path)
     await init_kostats_db(settings.db_path)
