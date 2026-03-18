@@ -16,13 +16,10 @@ _CACHE_TTL = 60.0  # seconds
 
 _COOKIE_NAME = "ko_token"
 
-# Internal HA URLs tried in order. Both HTTP and HTTPS variants are included
-# because some HA installs have SSL configured at the HA level (not just a proxy),
-# making port 8123 speak TLS even for internal connections.
-_HA_URLS = [
-    "http://homeassistant:8123/api/",
-    "https://homeassistant:8123/api/",
-    "http://supervisor/core/api/",
+# Internal HA URLs tried in order for token validation and exchange.
+_HA_INTERNAL_BASES = [
+    "https://homeassistant:8123",
+    "http://homeassistant:8123",
 ]
 
 security = HTTPBearer(auto_error=False)
@@ -30,16 +27,17 @@ security = HTTPBearer(auto_error=False)
 
 async def _validate_token_with_ha(token: str) -> bool:
     async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
-        for url in _HA_URLS:
+        for base in _HA_INTERNAL_BASES:
             try:
                 resp = await client.get(
-                    url, headers={"Authorization": f"Bearer {token}"}
+                    f"{base}/api/",
+                    headers={"Authorization": f"Bearer {token}"},
                 )
-                logger.info("Token validation at %s → %d", url, resp.status_code)
+                logger.info("Token validation at %s → %d", base, resp.status_code)
                 if resp.status_code == 200:
                     return True
             except Exception as exc:
-                logger.warning("Token validation at %s failed: %s", url, exc)
+                logger.warning("Token validation at %s failed: %s", base, exc)
     return False
 
 
@@ -56,12 +54,31 @@ async def validate_token(token: str) -> bool:
     return valid
 
 
-def _login_url(request: Request, error: str = "") -> str:
+async def exchange_code_for_token(code: str, client_id: str, redirect_uri: str) -> str | None:
+    """Exchange an OAuth2 authorisation code for an HA access token."""
+    async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+        for base in _HA_INTERNAL_BASES:
+            try:
+                resp = await client.post(
+                    f"{base}/auth/token",
+                    data={
+                        "grant_type": "authorization_code",
+                        "code": code,
+                        "client_id": client_id,
+                        "redirect_uri": redirect_uri,
+                    },
+                )
+                logger.info("Token exchange at %s → %d", base, resp.status_code)
+                if resp.status_code == 200:
+                    return resp.json().get("access_token")
+            except Exception as exc:
+                logger.warning("Token exchange at %s failed: %s", base, exc)
+    return None
+
+
+def _login_url(request: Request) -> str:
     root = request.scope.get("root_path", "").rstrip("/")
-    url = f"{root}/login"
-    if error:
-        url += f"?error={error}"
-    return url
+    return f"{root}/login"
 
 
 async def require_ha_auth(
@@ -93,11 +110,11 @@ async def require_ha_auth(
         if "text/html" in request.headers.get("accept", ""):
             raise HTTPException(
                 status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-                headers={"Location": _login_url(request, "invalid")},
+                headers={"Location": _login_url(request)},
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Home Assistant token",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -109,6 +126,7 @@ def set_auth_cookie(response: Response, token: str) -> None:
         key=_COOKIE_NAME,
         value=token,
         httponly=True,
+        secure=True,
         samesite="lax",
         max_age=60 * 60 * 24 * 30,  # 30 days
     )

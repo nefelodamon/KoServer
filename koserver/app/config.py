@@ -8,6 +8,7 @@ class Settings:
     def __init__(self):
         options = self._load_options()
         self.api_key: str = options.get("api_key", os.getenv("API_KEY", ""))
+        self.ha_url: str = options.get("ha_url", os.getenv("HA_URL", "")).rstrip("/")
         self.ssl_certificate: str = options.get("ssl_certificate", os.getenv("SSL_CERTIFICATE", "/ssl/fullchain.pem"))
         self.ssl_key: str = options.get("ssl_key", os.getenv("SSL_KEY", "/ssl/privkey.pem"))
         self.data_dir: Path = Path(os.getenv("DATA_DIR", "/data"))

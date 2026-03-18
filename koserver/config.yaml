@@ -1,5 +1,5 @@
 name: KoServer
-version: "0.1.18"
+version: "0.1.19"
 slug: koserver
 description: Host for various services including KoCharacters (KOReader character viewer)
 url: https://github.com/nefelodamon/KoServer
@@ -22,11 +22,13 @@ ports_description:
 
 options:
   api_key: ""
+  ha_url: ""
   ssl_certificate: /ssl/fullchain.pem
   ssl_key: /ssl/privkey.pem
 
 schema:
   api_key: str
+  ha_url: str
   ssl_certificate: str
   ssl_key: str
 

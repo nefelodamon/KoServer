@@ -2,14 +2,18 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlencode
 
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
-from app.auth import clear_auth_cookie, set_auth_cookie, validate_token
+from app.auth import (
+    clear_auth_cookie,
+    exchange_code_for_token,
+    set_auth_cookie,
+)
 from app.config import get_settings
 from app.services.kocharacters import router as kocharacters_router
 from app.services.kocharacters.storage import init_db
@@ -17,15 +21,18 @@ from app.services.kocharacters.storage import init_db
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
-TEMPLATES_DIR = Path(__file__).parent / "templates"
 VERSION = os.getenv("KOSERVER_VERSION", "dev")
-
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def _root(request: Request) -> str:
-    """Return the ingress root path prefix (e.g. /app/ac7e9e47_koserver)."""
     return request.scope.get("root_path", "").rstrip("/")
+
+
+def _base_url(request: Request) -> str:
+    """Absolute base URL of this app as seen by the browser."""
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost")
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
+    return f"{scheme}://{host}"
 
 
 @asynccontextmanager
@@ -61,24 +68,39 @@ async def root(request: Request):
     return RedirectResponse(url=f"{_root(request)}/services/kocharacters")
 
 
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request, error: str = ""):
-    return templates.TemplateResponse(
-        "login.html", {"request": request, "error": error}
-    )
-
-
-@app.post("/login")
-async def login_submit(request: Request, token: str = Form(...)):
-    if not await validate_token(token):
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "invalid"},
-            status_code=401,
+@app.get("/login")
+async def login(request: Request):
+    settings = get_settings()
+    if not settings.ha_url:
+        return HTMLResponse(
+            "<h1>Configuration error</h1><p>Set <code>ha_url</code> in the add-on options "
+            "(e.g. <code>https://your-ha:8123</code>).</p>",
+            status_code=503,
         )
-    response = RedirectResponse(
-        url=f"{_root(request)}/services/kocharacters", status_code=303
-    )
+    client_id = _base_url(request) + "/"
+    redirect_uri = _base_url(request) + "/auth/callback"
+    params = urlencode({
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+    })
+    return RedirectResponse(url=f"{settings.ha_url}/auth/authorize?{params}")
+
+
+@app.get("/auth/callback")
+async def auth_callback(request: Request, code: str = "", error: str = ""):
+    if error or not code:
+        logger.warning("OAuth callback error: %s", error or "no code")
+        return RedirectResponse(url=f"{_root(request)}/login")
+
+    client_id = _base_url(request) + "/"
+    redirect_uri = _base_url(request) + "/auth/callback"
+
+    token = await exchange_code_for_token(code, client_id, redirect_uri)
+    if not token:
+        return RedirectResponse(url=f"{_root(request)}/login")
+
+    response = RedirectResponse(url=f"{_root(request)}/services/kocharacters", status_code=303)
     set_auth_cookie(response, token)
     return response
 
