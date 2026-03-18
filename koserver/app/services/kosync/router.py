@@ -49,9 +49,15 @@ async def create_user(request: Request):
     if storage.get_setting(settings.kosync_db_path, ALLOW_REGISTRATION_KEY, "true") != "true":
         raise HTTPException(status_code=403, detail="Registration is disabled")
 
-    form = await request.form()
-    username = str(form.get("username", "")).strip()
-    password = str(form.get("password", "")).strip()
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        body = await request.json()
+        username = str(body.get("username", "")).strip()
+        password = str(body.get("password", "")).strip()
+    else:
+        form = await request.form()
+        username = str(form.get("username", "")).strip()
+        password = str(form.get("password", "")).strip()
 
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password are required")
