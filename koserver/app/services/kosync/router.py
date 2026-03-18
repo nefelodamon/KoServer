@@ -65,7 +65,7 @@ async def create_user(request: Request):
     if not storage.create_user(settings.kosync_db_path, username, password):
         raise HTTPException(status_code=402, detail="Username is already registered")
 
-    return JSONResponse({"username": username})
+    return JSONResponse({"username": username}, status_code=201)
 
 
 @router.get("/users/auth")
