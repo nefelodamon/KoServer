@@ -1,8 +1,12 @@
 import hashlib
+import hmac
+import os
 import sqlite3
 from pathlib import Path
 
 from app.services.kostats.models import KoStatsUser
+
+_PBKDF2_ITERATIONS = 260_000
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -12,32 +16,48 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-def _hash(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+def _hash(password: str, salt: bytes | None = None) -> tuple[str, str]:
+    if salt is None:
+        salt = os.urandom(32)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, _PBKDF2_ITERATIONS)
+    return key.hex(), salt.hex()
+
+
+def _verify(password: str, stored_hash: str, stored_salt: str) -> bool:
+    key, _ = _hash(password, bytes.fromhex(stored_salt))
+    return hmac.compare_digest(key, stored_hash)
 
 
 async def init_db(db_path: Path) -> None:
     conn = _connect(db_path)
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS kostats_users (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            username    TEXT    NOT NULL UNIQUE,
-            password_hash TEXT  NOT NULL,
-            created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-            last_upload TEXT    DEFAULT NULL
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT    NOT NULL UNIQUE,
+            password_hash TEXT    NOT NULL,
+            password_salt TEXT    NOT NULL DEFAULT '',
+            created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+            last_upload   TEXT    DEFAULT NULL
         );
     """)
+    # Migration: add password_salt to existing databases
+    try:
+        conn.execute("ALTER TABLE kostats_users ADD COLUMN password_salt TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.commit()
     conn.close()
 
 
 def create_user(db_path: Path, username: str, password: str) -> bool:
     """Returns True if created, False if username taken."""
+    hashed, salt = _hash(password)
     conn = _connect(db_path)
     try:
         conn.execute(
-            "INSERT INTO kostats_users (username, password_hash) VALUES (?, ?)",
-            (username, _hash(password)),
+            "INSERT INTO kostats_users (username, password_hash, password_salt) VALUES (?, ?, ?)",
+            (username, hashed, salt),
         )
         conn.commit()
         return True
@@ -50,11 +70,13 @@ def create_user(db_path: Path, username: str, password: str) -> bool:
 def authenticate(db_path: Path, username: str, password: str) -> bool:
     conn = _connect(db_path)
     row = conn.execute(
-        "SELECT 1 FROM kostats_users WHERE username = ? AND password_hash = ?",
-        (username, _hash(password)),
+        "SELECT password_hash, password_salt FROM kostats_users WHERE username = ?",
+        (username,),
     ).fetchone()
     conn.close()
-    return row is not None
+    if not row:
+        return False
+    return _verify(password, row["password_hash"], row["password_salt"])
 
 
 def touch_last_upload(db_path: Path, username: str) -> None:
@@ -93,10 +115,11 @@ def delete_user(db_path: Path, username: str) -> bool:
 
 
 def change_password(db_path: Path, username: str, new_password: str) -> bool:
+    hashed, salt = _hash(new_password)
     conn = _connect(db_path)
     cur = conn.execute(
-        "UPDATE kostats_users SET password_hash = ? WHERE username = ?",
-        (_hash(new_password), username),
+        "UPDATE kostats_users SET password_hash = ?, password_salt = ? WHERE username = ?",
+        (hashed, salt, username),
     )
     conn.commit()
     conn.close()
