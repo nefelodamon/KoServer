@@ -3,6 +3,8 @@ from pathlib import Path
 
 from app.services.kosync.models import KoSyncUser, ReadingProgress
 
+ALLOW_REGISTRATION_KEY = "allow_registration"
+
 
 def _connect(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path))
@@ -42,7 +44,7 @@ async def init_db(db_path: Path) -> None:
         );
     """)
     conn.execute(
-        "INSERT OR IGNORE INTO kosync_settings (key, value) VALUES ('allow_registration', 'true')"
+        f"INSERT OR IGNORE INTO kosync_settings (key, value) VALUES ('{ALLOW_REGISTRATION_KEY}', 'true')"
     )
     conn.commit()
     conn.close()

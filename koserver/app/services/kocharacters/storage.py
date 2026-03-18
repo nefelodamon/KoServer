@@ -11,6 +11,7 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
@@ -252,6 +253,19 @@ def get_book(db_path: Path, book_id: str) -> Book | None:
     """, (book_id,)).fetchone()
     conn.close()
     return _row_to_book(row, row["character_count"]) if row else None
+
+
+def get_all_characters(db_path: Path) -> dict[str, list[Character]]:
+    conn = _connect(db_path)
+    rows = conn.execute("""
+        SELECT * FROM characters
+        ORDER BY book_id, first_seen_page ASC NULLS LAST, name ASC
+    """).fetchall()
+    conn.close()
+    result: dict[str, list[Character]] = {}
+    for row in rows:
+        result.setdefault(row["book_id"], []).append(_row_to_character(row))
+    return result
 
 
 def get_characters(db_path: Path, book_id: str) -> list[Character]:

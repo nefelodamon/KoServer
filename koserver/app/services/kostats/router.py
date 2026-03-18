@@ -1,5 +1,6 @@
 import base64
 import logging
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
@@ -213,7 +214,7 @@ async def webdav(
         target.parent.mkdir(parents=True, exist_ok=True)
         body = await request.body()
         target.write_bytes(body)
-        storage.touch_last_upload(get_settings().db_path, username)
+        storage.touch_last_upload(get_settings().kostats_db_path, username)
         logger.info("KoStats: %s uploaded %s (%d bytes)", username, path, len(body))
         existed = target.stat().st_size > 0  # always true after write
         return Response(status_code=204 if existed else 201)
@@ -229,7 +230,6 @@ async def webdav(
     if method == "DELETE":
         if not target.exists():
             raise HTTPException(status_code=404)
-        import shutil
         if target.is_dir():
             shutil.rmtree(target)
         else:
@@ -297,10 +297,8 @@ async def delete_user(
 ):
     settings = get_settings()
     storage.delete_user(settings.kostats_db_path, username)
-    import shutil
     user_dir = settings.kostats_dir / username
-    if user_dir.exists():
-        shutil.rmtree(user_dir)
+    shutil.rmtree(user_dir, ignore_errors=True)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kostats/settings", status_code=303)
 

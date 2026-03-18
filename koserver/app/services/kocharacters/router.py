@@ -10,7 +10,7 @@ from typing import Annotated
 import aiofiles
 from PIL import Image
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
@@ -213,9 +213,7 @@ async def purge_book(
 ):
     settings = get_settings()
     if storage.purge_book(settings.kocharacters_db_path, book_id):
-        portrait_dir = settings.portraits_dir / book_id
-        if portrait_dir.exists():
-            shutil.rmtree(portrait_dir)
+        shutil.rmtree(settings.portraits_dir / book_id, ignore_errors=True)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
 
@@ -228,9 +226,7 @@ async def purge_all(
     settings = get_settings()
     purged_ids = storage.purge_all_deleted(settings.kocharacters_db_path)
     for book_id in purged_ids:
-        portrait_dir = settings.portraits_dir / book_id
-        if portrait_dir.exists():
-            shutil.rmtree(portrait_dir)
+        shutil.rmtree(settings.portraits_dir / book_id, ignore_errors=True)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
 
@@ -242,10 +238,7 @@ async def debug(
 ):
     settings = get_settings()
     books = storage.list_books(settings.kocharacters_db_path)
-    all_characters = {
-        book.book_id: storage.get_characters(settings.kocharacters_db_path, book.book_id)
-        for book in books
-    }
+    all_characters = storage.get_all_characters(settings.kocharacters_db_path)
     return templates.TemplateResponse(
         "debug.html", {"request": request, "books": books, "all_characters": all_characters}
     )
@@ -257,7 +250,6 @@ async def serve_thumbnail(
     filename: str,
     _: Annotated[str, Depends(require_ha_auth)],
 ):
-    from fastapi.responses import Response
     settings = get_settings()
     safe_filename = Path(filename).name
     thumb_path = settings.portraits_dir / book_id / "thumbnails" / safe_filename
@@ -275,7 +267,6 @@ async def serve_portrait(
     filename: str,
     _: Annotated[str, Depends(require_ha_auth)],
 ):
-    from fastapi.responses import Response
     settings = get_settings()
     safe_filename = Path(filename).name
     portrait_path = settings.portraits_dir / book_id / safe_filename

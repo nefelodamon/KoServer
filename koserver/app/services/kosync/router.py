@@ -10,6 +10,7 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 from app.auth import require_ha_auth
 from app.config import get_settings
 from app.services.kosync import storage
+from app.services.kosync.storage import ALLOW_REGISTRATION_KEY
 
 _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"
@@ -45,7 +46,7 @@ def _require_kosync_auth(
 @router.post("/users/create")
 async def create_user(request: Request):
     settings = get_settings()
-    if storage.get_setting(settings.kosync_db_path, "allow_registration", "true") != "true":
+    if storage.get_setting(settings.kosync_db_path, ALLOW_REGISTRATION_KEY, "true") != "true":
         raise HTTPException(status_code=403, detail="Registration is disabled")
 
     form = await request.form()
@@ -133,11 +134,11 @@ async def settings_page(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    allow_registration = storage.get_setting(settings.kosync_db_path, "allow_registration", "true") == "true"
+    allow_registration = storage.get_setting(settings.kosync_db_path, ALLOW_REGISTRATION_KEY, "true") == "true"
     users = storage.list_users(settings.kosync_db_path)
     return templates.TemplateResponse(
         "settings.html",
-        {"request": request, "allow_registration": allow_registration, "users": users},
+        {"request": request, ALLOW_REGISTRATION_KEY: allow_registration, "users": users},
     )
 
 
@@ -148,8 +149,8 @@ async def update_settings(
 ):
     settings = get_settings()
     form = await request.form()
-    value = "true" if form.get("allow_registration") == "on" else "false"
-    storage.set_setting(settings.kosync_db_path, "allow_registration", value)
+    value = "true" if form.get(ALLOW_REGISTRATION_KEY) == "on" else "false"
+    storage.set_setting(settings.kosync_db_path, ALLOW_REGISTRATION_KEY, value)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kosync/settings", status_code=303)
 
