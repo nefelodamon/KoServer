@@ -90,6 +90,12 @@ a { color: inherit; text-decoration: none; }
 
 .nav-link.active { border-left: 3px solid var(--accent); }
 
+.nav-link.nav-sub {
+  padding-left: 2.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 /* ── Main content ─────────────────────────────────────────────────────── */
 .content {
   margin-left: var(--sidebar-w);
