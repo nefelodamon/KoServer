@@ -199,6 +199,25 @@ async def settings_page(
     )
 
 
+@router.post("/settings/regenerate-thumbnails")
+async def regenerate_thumbnails(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    thumb_size = int(storage.get_setting(
+        settings.kocharacters_db_path, THUMBNAIL_SIZE_KEY, str(DEFAULT_THUMBNAIL_SIZE)
+    ))
+    count = 0
+    for portrait_file in settings.portraits_dir.rglob("*"):
+        if portrait_file.is_file() and "thumbnails" not in portrait_file.parts:
+            _make_thumbnail(portrait_file, thumb_size)
+            count += 1
+    logger.info("Regenerated %d thumbnails at %dpx", count, thumb_size)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
+
+
 @router.post("/settings/save")
 async def save_settings(
     request: Request,

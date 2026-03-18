@@ -20,9 +20,13 @@
     </div>
     <button type="submit" class="btn-primary">Save</button>
   </form>
+  <form method="post" action="{{ root }}/services/kocharacters/settings/regenerate-thumbnails"
+        style="margin-top:1rem"
+        onsubmit="return confirm('Regenerate all thumbnails at {{ thumbnail_size }}px? This may take a moment.')">
+    <button type="submit" class="btn-restore">Regenerate all thumbnails</button>
+  </form>
   <p class="empty-note" style="margin-top:0.75rem">
     Portraits are square; larger sizes are sharper but use more storage.
-    Re-upload a book to regenerate its thumbnails at the new size.
   </p>
 </section>
 
