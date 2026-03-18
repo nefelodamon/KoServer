@@ -14,6 +14,7 @@ from app.auth import require_ha_auth
 from app.config import get_settings
 from app.services.kostats import storage
 from app.services.kostats.models import UploadedFile
+from app.services.kostats.stats_reader import compute_stats
 
 logger = logging.getLogger(__name__)
 
@@ -252,13 +253,31 @@ async def dashboard(
     settings = get_settings()
     users = storage.list_users(settings.kostats_db_path)
     user_files: dict[str, list[UploadedFile]] = {}
+    has_stats: dict[str, bool] = {}
     for user in users:
         d = settings.kostats_dir / user.username
         user_files[user.username] = _list_files(d) if d.exists() else []
         user.file_count = len(user_files[user.username])
+        has_stats[user.username] = (d / "statistics.sqlite3").is_file()
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "users": users, "user_files": user_files},
+        {"request": request, "users": users, "user_files": user_files, "has_stats": has_stats},
+    )
+
+
+@router.get("/stats/{username}", response_class=HTMLResponse)
+async def user_stats(
+    username: str,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    db_path = settings.kostats_dir / username / "statistics.sqlite3"
+    if not db_path.is_file():
+        raise HTTPException(status_code=404, detail="No statistics database found for this user")
+    stats = compute_stats(db_path)
+    return templates.TemplateResponse(
+        "user_stats.html", {"request": request, "username": username, "stats": stats}
     )
 
 

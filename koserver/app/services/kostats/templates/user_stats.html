@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}KoStats — {{ username }} Stats{% endblock %}
+{% block nav_kostats %}active{% endblock %}
+
+{% block header_actions %}
+<a href="{{ root }}/services/kostats/settings" class="btn-icon" title="Settings">⚙️</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="{{ root }}/services/kostats" class="back-link">← KoStats</a>
+  <h1>{{ username }}</h1>
+</div>
+
+{# ── Summary cards ── #}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.summary.total_hours }}h</div>
+    <div class="stat-label">Total read</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.summary.books_read }}</div>
+    <div class="stat-label">Books read</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">
+      {% if stats.summary.page_reads >= 1000 %}
+        {{ (stats.summary.page_reads / 1000) | round(1) }}k
+      {% else %}
+        {{ stats.summary.page_reads }}
+      {% endif %}
+    </div>
+    <div class="stat-label">Pages read</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.summary.avg_speed }}</div>
+    <div class="stat-label">Pages / hour</div>
+  </div>
+</div>
+
+{# ── Currently reading ── #}
+{% if stats.summary.current_book %}
+<div class="panel" style="margin-bottom:1.5rem">
+  <div class="panel-title">Currently reading</div>
+  <div style="display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap">
+    <span style="font-size:1rem; font-weight:600">{{ stats.summary.current_book }}</span>
+    <div class="progress-wrap" style="flex:1; min-width:200px">
+      <div class="progress-bar-bg" style="height:8px">
+        <div class="progress-bar-fill" style="width:{{ stats.summary.current_book_pct }}%; height:8px"></div>
+      </div>
+      <span class="progress-pct" style="font-size:0.85rem">{{ stats.summary.current_book_pct }}%</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Last 30 days ── #}
+<div class="panel">
+  <div class="panel-title">Reading activity — last 30 days</div>
+  <div class="bar-chart" style="height:120px">
+    {% for d in stats.daily %}
+    <div class="bar-col">
+      <div class="bar"
+           style="height:{{ ((d.minutes / stats.max_daily_minutes) * 100) | int }}%"
+           title="{{ d.date }}: {{ d.minutes | round(0) | int }} min"></div>
+      <div class="bar-x-label">
+        {% if loop.index == 1 or loop.index == 8 or loop.index == 15 or loop.index == 22 or loop.index == 30 %}
+          {{ d.date[5:] }}
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Monthly ── #}
+<div class="panel">
+  <div class="panel-title">Monthly reading time</div>
+  <div class="bar-chart" style="height:100px">
+    {% for m in stats.monthly %}
+    <div class="bar-col">
+      <div class="bar"
+           style="height:{{ ((m.hours / stats.max_monthly_hours) * 100) | int }}%; background:var(--role-supporting)"
+           title="{{ m.month }}: {{ m.hours }}h"></div>
+      <div class="bar-x-label">{{ m.month[2:] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Two-column: Top books + By hour ── #}
+<div class="panel-row">
+
+  <div class="panel">
+    <div class="panel-title">Top books by time</div>
+    {% if stats.top_books %}
+    <table class="recycle-table">
+      <thead>
+        <tr>
+          <th>Book</th>
+          <th>Time</th>
+          <th>pg/h</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for b in stats.top_books %}
+        <tr>
+          <td>
+            <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
+            {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
+          </td>
+          <td style="white-space:nowrap">{{ b.hours }}h</td>
+          <td style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">No data yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Reading by hour of day</div>
+    <div class="bar-chart" style="height:100px">
+      {% for h in stats.by_hour %}
+      <div class="bar-col">
+        <div class="bar"
+             style="height:{{ ((h.minutes / stats.max_hour_minutes) * 100) | int }}%; background:var(--success); opacity:0.7"
+             title="{{ h.hour }}:00 — {{ h.minutes | round(0) | int }} min"></div>
+        <div class="bar-x-label">
+          {% if h.hour in [0, 6, 12, 18, 23] %}{{ h.hour }}{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem">Hours in UTC</div>
+  </div>
+
+</div>
+{% endblock %}

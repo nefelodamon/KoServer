@@ -15,10 +15,14 @@
 {% if users %}
   {% for user in users %}
   <div style="margin-bottom:2rem">
-    <h2 style="margin-bottom:0.5rem">{{ user.username }}
+    <h2 style="margin-bottom:0.5rem;display:flex;align-items:center;gap:0.75rem">
+      {{ user.username }}
       <span class="meta-badge" style="font-size:0.8rem;font-weight:normal">
         last upload: {{ user.last_upload[:16] if user.last_upload else 'never' }}
       </span>
+      {% if has_stats[user.username] %}
+      <a href="{{ root }}/services/kostats/stats/{{ user.username }}" class="meta-badge" style="color:var(--accent);border-color:var(--accent)">📈 Stats</a>
+      {% endif %}
     </h2>
     {% set files = user_files[user.username] %}
     {% if files %}
