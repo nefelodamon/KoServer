@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 COPY run.py .
 
-RUN mkdir -p /data/portraits /data/db
+RUN mkdir -p /share/koserver/portraits
 
 EXPOSE 8099
 

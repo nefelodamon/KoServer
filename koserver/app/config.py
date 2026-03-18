@@ -11,8 +11,9 @@ class Settings:
         self.ssl_certificate: str = options.get("ssl_certificate", os.getenv("SSL_CERTIFICATE", "/ssl/fullchain.pem"))
         self.ssl_key: str = options.get("ssl_key", os.getenv("SSL_KEY", "/ssl/privkey.pem"))
         self.data_dir: Path = Path(os.getenv("DATA_DIR", "/data"))
-        self.portraits_dir: Path = self.data_dir / "portraits"
-        self.db_path: Path = self.data_dir / "db" / "koserver.db"
+        self.share_dir: Path = Path("/share/koserver")
+        self.portraits_dir: Path = self.share_dir / "portraits"
+        self.db_path: Path = self.share_dir / "koserver.db"
 
     @staticmethod
     def _load_options() -> dict:
