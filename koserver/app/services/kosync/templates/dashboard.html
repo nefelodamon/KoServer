@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}KoSync — Dashboard{% endblock %}
+{% block nav_kosync %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>KoSync</h1>
+  <span class="book-count">{{ users | length }} user{{ 's' if users | length != 1 }}</span>
+</div>
+
+{% if users %}
+<table class="recycle-table">
+  <thead>
+    <tr>
+      <th>Username</th>
+      <th>Documents synced</th>
+      <th>Last sync</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for user in users %}
+    <tr>
+      <td>{{ user.username }}</td>
+      <td>{{ user.document_count }}</td>
+      <td>{{ user.last_sync[:16] if user.last_sync else '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📡</div>
+  <h2>No users yet</h2>
+  <p>Configure KOReader to sync to this server:</p>
+  <code class="upload-hint">{{ request.url.scheme }}://{{ request.headers.get('host', '') }}/services/kosync</code>
+</div>
+{% endif %}
+{% endblock %}

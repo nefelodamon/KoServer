@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}KoSync — Settings{% endblock %}
+{% block nav_kosync %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>KoSync Settings</h1>
+</div>
+
+<section class="settings-section">
+  <h2>Registration</h2>
+  <form method="post" action="{{ root }}/services/kosync/settings">
+    <label class="toggle-label">
+      <input type="checkbox" name="allow_registration" {% if allow_registration %}checked{% endif %}
+             onchange="this.form.submit()">
+      Allow new user registrations
+    </label>
+  </form>
+  <p class="empty-note">When disabled, KOReader devices cannot create new accounts on this server.</p>
+</section>
+
+<section class="settings-section">
+  <div class="settings-section-header">
+    <h2>Users</h2>
+    <span class="meta-badge">{{ users | length }}</span>
+  </div>
+
+  {% if users %}
+  <table class="recycle-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Documents</th>
+        <th>Last sync</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for user in users %}
+      <tr>
+        <td>{{ user.username }}</td>
+        <td>{{ user.document_count }}</td>
+        <td>{{ user.last_sync[:16] if user.last_sync else '—' }}</td>
+        <td>
+          <form method="post"
+                action="{{ root }}/services/kosync/settings/delete-user/{{ user.username }}"
+                onsubmit="return confirm('Delete user &quot;{{ user.username }}&quot; and all their progress data?')"
+                style="display:inline">
+            <button type="submit" class="btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-note">No users registered yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
