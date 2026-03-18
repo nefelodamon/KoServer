@@ -363,7 +363,7 @@ async def serve_thumbnail(
     full_path = settings.portraits_dir / book_id / safe_filename
     for path in (thumb_path, full_path):
         if path.exists() and path.is_file():
-            return FileResponse(str(path), media_type="image/png")
+            return FileResponse(str(path), media_type=_media_type(path))
     return Response(content=_placeholder_svg(), media_type="image/svg+xml")
 
 
@@ -378,7 +378,14 @@ async def serve_portrait(
     portrait_path = settings.portraits_dir / book_id / safe_filename
     if not portrait_path.exists() or not portrait_path.is_file():
         return Response(content=_placeholder_svg(), media_type="image/svg+xml")
-    return FileResponse(str(portrait_path), media_type="image/png")
+    return FileResponse(str(portrait_path), media_type=_media_type(portrait_path))
+
+
+_MEDIA_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+
+
+def _media_type(path: Path) -> str:
+    return _MEDIA_TYPES.get(path.suffix.lower(), "image/png")
 
 
 def _placeholder_svg() -> str:
