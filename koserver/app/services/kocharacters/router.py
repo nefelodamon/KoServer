@@ -1,13 +1,14 @@
 import io
 import json
 import re
+import shutil
 import tarfile
 from pathlib import Path
 from typing import Annotated
 
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
@@ -147,6 +148,72 @@ async def book_detail(
         "book.html",
         {"request": request, "book": book, "characters": characters},
     )
+
+
+@router.post("/books/{book_id}/delete")
+async def delete_book(
+    book_id: str,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    storage.soft_delete_book(settings.db_path, book_id)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kocharacters", status_code=303)
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_page(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    deleted_books = storage.list_deleted_books(settings.db_path)
+    return templates.TemplateResponse(
+        "settings.html", {"request": request, "deleted_books": deleted_books}
+    )
+
+
+@router.post("/settings/restore/{book_id}")
+async def restore_book(
+    book_id: str,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    storage.restore_book(settings.db_path, book_id)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
+
+
+@router.post("/settings/purge/{book_id}")
+async def purge_book(
+    book_id: str,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    if storage.purge_book(settings.db_path, book_id):
+        portrait_dir = settings.portraits_dir / book_id
+        if portrait_dir.exists():
+            shutil.rmtree(portrait_dir)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
+
+
+@router.post("/settings/purge-all")
+async def purge_all(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    purged_ids = storage.purge_all_deleted(settings.db_path)
+    for book_id in purged_ids:
+        portrait_dir = settings.portraits_dir / book_id
+        if portrait_dir.exists():
+            shutil.rmtree(portrait_dir)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
 
 
 @router.get("/debug", response_class=HTMLResponse)

@@ -29,4 +29,5 @@ class Book:
     title: str
     context: str = ""
     uploaded_at: str = ""
+    deleted_at: Optional[str] = None
     character_count: int = 0

@@ -22,7 +22,8 @@ async def init_db(db_path: Path) -> None:
             book_id     TEXT    NOT NULL UNIQUE,
             title       TEXT    NOT NULL,
             context     TEXT    NOT NULL DEFAULT '',
-            uploaded_at TEXT    NOT NULL DEFAULT (datetime('now'))
+            uploaded_at TEXT    NOT NULL DEFAULT (datetime('now')),
+            deleted_at  TEXT    DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS characters (
@@ -46,6 +47,12 @@ async def init_db(db_path: Path) -> None:
         );
     """)
     conn.commit()
+    # Migration: add deleted_at to existing databases
+    try:
+        conn.execute("ALTER TABLE books ADD COLUMN deleted_at TEXT DEFAULT NULL")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.close()
 
 
@@ -56,6 +63,7 @@ def _row_to_book(row: sqlite3.Row, character_count: int = 0) -> Book:
         title=row["title"],
         context=row["context"],
         uploaded_at=row["uploaded_at"],
+        deleted_at=row["deleted_at"],
         character_count=character_count,
     )
 
@@ -164,11 +172,73 @@ def list_books(db_path: Path) -> list[Book]:
         SELECT b.*, COUNT(c.id) AS character_count
         FROM books b
         LEFT JOIN characters c ON c.book_id = b.book_id
+        WHERE b.deleted_at IS NULL
         GROUP BY b.id
         ORDER BY b.uploaded_at DESC
     """).fetchall()
     conn.close()
     return [_row_to_book(r, r["character_count"]) for r in rows]
+
+
+def list_deleted_books(db_path: Path) -> list[Book]:
+    conn = _connect(db_path)
+    rows = conn.execute("""
+        SELECT b.*, COUNT(c.id) AS character_count
+        FROM books b
+        LEFT JOIN characters c ON c.book_id = b.book_id
+        WHERE b.deleted_at IS NOT NULL
+        GROUP BY b.id
+        ORDER BY b.deleted_at DESC
+    """).fetchall()
+    conn.close()
+    return [_row_to_book(r, r["character_count"]) for r in rows]
+
+
+def soft_delete_book(db_path: Path, book_id: str) -> bool:
+    conn = _connect(db_path)
+    cur = conn.execute(
+        "UPDATE books SET deleted_at = datetime('now') WHERE book_id = ? AND deleted_at IS NULL",
+        (book_id,),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
+
+
+def restore_book(db_path: Path, book_id: str) -> bool:
+    conn = _connect(db_path)
+    cur = conn.execute(
+        "UPDATE books SET deleted_at = NULL WHERE book_id = ?",
+        (book_id,),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
+
+
+def purge_book(db_path: Path, book_id: str) -> bool:
+    """Permanently delete a single book from the recycle bin."""
+    conn = _connect(db_path)
+    cur = conn.execute(
+        "DELETE FROM books WHERE book_id = ? AND deleted_at IS NOT NULL",
+        (book_id,),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
+
+
+def purge_all_deleted(db_path: Path) -> list[str]:
+    """Permanently delete all books in the recycle bin. Returns their book_ids."""
+    conn = _connect(db_path)
+    rows = conn.execute(
+        "SELECT book_id FROM books WHERE deleted_at IS NOT NULL"
+    ).fetchall()
+    book_ids = [r["book_id"] for r in rows]
+    conn.execute("DELETE FROM books WHERE deleted_at IS NOT NULL")
+    conn.commit()
+    conn.close()
+    return book_ids
 
 
 def get_book(db_path: Path, book_id: str) -> Book | None:

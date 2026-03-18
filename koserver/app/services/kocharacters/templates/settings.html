@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Settings — KoCharacters{% endblock %}
+{% block nav_settings %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Settings</h1>
+</div>
+
+<section class="settings-section">
+  <div class="settings-section-header">
+    <h2>Recycle Bin</h2>
+    <span class="meta-badge">{{ deleted_books | length }} book{{ 's' if deleted_books | length != 1 }}</span>
+  </div>
+
+  {% if deleted_books %}
+  <form method="post" action="{{ root }}/services/kocharacters/settings/purge-all"
+        onsubmit="return confirm('Permanently delete all {{ deleted_books | length }} book(s)? This cannot be undone.')">
+    <button type="submit" class="btn-danger">Empty recycle bin</button>
+  </form>
+
+  <table class="recycle-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Characters</th>
+        <th>Deleted</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for book in deleted_books %}
+      <tr>
+        <td>{{ book.title }}</td>
+        <td>{{ book.character_count }}</td>
+        <td>{{ book.deleted_at[:10] if book.deleted_at else '' }}</td>
+        <td class="recycle-actions">
+          <form method="post" action="{{ root }}/services/kocharacters/settings/restore/{{ book.book_id }}" style="display:inline">
+            <button type="submit" class="btn-restore">Restore</button>
+          </form>
+          <form method="post" action="{{ root }}/services/kocharacters/settings/purge/{{ book.book_id }}"
+                onsubmit="return confirm('Permanently delete &quot;{{ book.title }}&quot;? This cannot be undone.')"
+                style="display:inline">
+            <button type="submit" class="btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-note">Recycle bin is empty.</p>
+  {% endif %}
+</section>
+{% endblock %}
