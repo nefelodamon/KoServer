@@ -37,7 +37,7 @@ def _require_kosync_auth(
     if not x_auth_user or not x_auth_key:
         raise HTTPException(status_code=401, detail="Missing credentials")
     settings = get_settings()
-    if not storage.authenticate(settings.db_path, x_auth_user, x_auth_key):
+    if not storage.authenticate(settings.kosync_db_path, x_auth_user, x_auth_key):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return x_auth_user
 
@@ -45,7 +45,7 @@ def _require_kosync_auth(
 @router.post("/users/create")
 async def create_user(request: Request):
     settings = get_settings()
-    if storage.get_setting(settings.db_path, "allow_registration", "true") != "true":
+    if storage.get_setting(settings.kosync_db_path, "allow_registration", "true") != "true":
         raise HTTPException(status_code=403, detail="Registration is disabled")
 
     form = await request.form()
@@ -55,7 +55,7 @@ async def create_user(request: Request):
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password are required")
 
-    if not storage.create_user(settings.db_path, username, password):
+    if not storage.create_user(settings.kosync_db_path, username, password):
         raise HTTPException(status_code=402, detail="Username is already registered")
 
     return JSONResponse({"username": username})
@@ -79,7 +79,7 @@ async def update_progress(
 
     ts = int(body.get("timestamp") or time.time())
     storage.upsert_progress(
-        settings.db_path,
+        settings.kosync_db_path,
         username=username,
         document=document,
         progress=body.get("progress", ""),
@@ -97,7 +97,7 @@ async def get_progress(
     username: Annotated[str, Depends(_require_kosync_auth)],
 ):
     settings = get_settings()
-    progress = storage.get_progress(settings.db_path, username, document)
+    progress = storage.get_progress(settings.kosync_db_path, username, document)
     if not progress:
         raise HTTPException(status_code=404, detail="No progress found")
     return JSONResponse({
@@ -121,7 +121,7 @@ async def dashboard(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    users = storage.list_users(settings.db_path)
+    users = storage.list_users(settings.kosync_db_path)
     return templates.TemplateResponse(
         "dashboard.html", {"request": request, "users": users}
     )
@@ -133,8 +133,8 @@ async def settings_page(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    allow_registration = storage.get_setting(settings.db_path, "allow_registration", "true") == "true"
-    users = storage.list_users(settings.db_path)
+    allow_registration = storage.get_setting(settings.kosync_db_path, "allow_registration", "true") == "true"
+    users = storage.list_users(settings.kosync_db_path)
     return templates.TemplateResponse(
         "settings.html",
         {"request": request, "allow_registration": allow_registration, "users": users},
@@ -149,7 +149,7 @@ async def update_settings(
     settings = get_settings()
     form = await request.form()
     value = "true" if form.get("allow_registration") == "on" else "false"
-    storage.set_setting(settings.db_path, "allow_registration", value)
+    storage.set_setting(settings.kosync_db_path, "allow_registration", value)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kosync/settings", status_code=303)
 
@@ -161,6 +161,6 @@ async def delete_user(
     _: Annotated[str, Depends(require_ha_auth)],
 ):
     settings = get_settings()
-    storage.delete_user(settings.db_path, username)
+    storage.delete_user(settings.kosync_db_path, username)
     root = request.scope.get("root_path", "").rstrip("/")
     return RedirectResponse(url=f"{root}/services/kosync/settings", status_code=303)
