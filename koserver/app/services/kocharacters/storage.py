@@ -4,6 +4,9 @@ from pathlib import Path
 
 from app.services.kocharacters.models import Book, Character
 
+THUMBNAIL_SIZE_KEY = "thumbnail_size"
+DEFAULT_THUMBNAIL_SIZE = 400
+
 # Use synchronous sqlite3 — simple and sufficient for this workload.
 
 
@@ -18,6 +21,11 @@ def _connect(db_path: Path) -> sqlite3.Connection:
 async def init_db(db_path: Path) -> None:
     conn = _connect(db_path)
     conn.executescript("""
+        CREATE TABLE IF NOT EXISTS kocharacters_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS books (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             book_id     TEXT    NOT NULL UNIQUE,
@@ -54,6 +62,26 @@ async def init_db(db_path: Path) -> None:
         conn.commit()
     except sqlite3.OperationalError:
         pass  # Column already exists
+    conn.close()
+
+
+def get_setting(db_path: Path, key: str, default: str = "") -> str:
+    conn = _connect(db_path)
+    row = conn.execute(
+        "SELECT value FROM kocharacters_settings WHERE key = ?", (key,)
+    ).fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+
+def set_setting(db_path: Path, key: str, value: str) -> None:
+    conn = _connect(db_path)
+    conn.execute(
+        "INSERT INTO kocharacters_settings (key, value) VALUES (?, ?)"
+        " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+    conn.commit()
     conn.close()
 
 

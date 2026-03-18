@@ -9,6 +9,24 @@
 </div>
 
 <section class="settings-section">
+  <h2>Thumbnails</h2>
+  <form method="post" action="{{ root }}/services/kocharacters/settings/save"
+        style="display:flex; align-items:flex-end; gap:1rem; flex-wrap:wrap">
+    <div class="form-group" style="margin-bottom:0">
+      <label for="thumb-size">Size (px) — applied on next upload</label>
+      <input id="thumb-size" type="number" name="thumbnail_size"
+             value="{{ thumbnail_size }}" min="100" max="1000" step="50"
+             style="width:120px">
+    </div>
+    <button type="submit" class="btn-primary">Save</button>
+  </form>
+  <p class="empty-note" style="margin-top:0.75rem">
+    Portraits are square; larger sizes are sharper but use more storage.
+    Re-upload a book to regenerate its thumbnails at the new size.
+  </p>
+</section>
+
+<section class="settings-section">
   <div class="settings-section-header">
     <h2>Recycle Bin</h2>
     <span class="meta-badge">{{ deleted_books | length }} book{{ 's' if deleted_books | length != 1 }}</span>

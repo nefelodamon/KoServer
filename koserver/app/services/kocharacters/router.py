@@ -15,12 +15,11 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
 from app.auth import require_api_key, require_ha_auth
-
-logger = logging.getLogger(__name__)
-
-_THUMB_SIZE = (400, 400)
 from app.config import get_settings
 from app.services.kocharacters import storage
+from app.services.kocharacters.storage import DEFAULT_THUMBNAIL_SIZE, THUMBNAIL_SIZE_KEY
+
+logger = logging.getLogger(__name__)
 
 _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"
@@ -37,12 +36,12 @@ templates = Jinja2Templates(env=Environment(
 router = APIRouter()
 
 
-def _make_thumbnail(source: Path) -> None:
+def _make_thumbnail(source: Path, size: int) -> None:
     try:
         thumb_dir = source.parent / "thumbnails"
         thumb_dir.mkdir(exist_ok=True)
         with Image.open(source) as img:
-            img.thumbnail(_THUMB_SIZE, Image.LANCZOS)
+            img.thumbnail((size, size), Image.LANCZOS)
             img.save(thumb_dir / source.name, "PNG", optimize=True)
     except Exception as exc:
         logger.warning("Thumbnail generation failed for %s: %s", source.name, exc)
@@ -109,6 +108,9 @@ async def upload_archive(
     # Extract portraits
     portrait_dir = settings.portraits_dir / book_id
     portrait_dir.mkdir(parents=True, exist_ok=True)
+    thumb_size = int(storage.get_setting(
+        settings.kocharacters_db_path, THUMBNAIL_SIZE_KEY, str(DEFAULT_THUMBNAIL_SIZE)
+    ))
 
     portrait_prefix = f"{prefix}portraits/"
     for name in names:
@@ -121,7 +123,7 @@ async def upload_archive(
                     dest = portrait_dir / filename
                     async with aiofiles.open(dest, "wb") as f:
                         await f.write(data)
-                    _make_thumbnail(dest)
+                    _make_thumbnail(dest, thumb_size)
 
     # Persist to DB
     storage.upsert_book(settings.kocharacters_db_path, book_id, title, context)
@@ -188,9 +190,29 @@ async def settings_page(
 ):
     settings = get_settings()
     deleted_books = storage.list_deleted_books(settings.kocharacters_db_path)
+    thumbnail_size = int(storage.get_setting(
+        settings.kocharacters_db_path, THUMBNAIL_SIZE_KEY, str(DEFAULT_THUMBNAIL_SIZE)
+    ))
     return templates.TemplateResponse(
-        "settings.html", {"request": request, "deleted_books": deleted_books}
+        "settings.html",
+        {"request": request, "deleted_books": deleted_books, "thumbnail_size": thumbnail_size},
     )
+
+
+@router.post("/settings/save")
+async def save_settings(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    form = await request.form()
+    try:
+        size = max(100, min(1000, int(form.get("thumbnail_size", DEFAULT_THUMBNAIL_SIZE))))
+    except (ValueError, TypeError):
+        size = DEFAULT_THUMBNAIL_SIZE
+    storage.set_setting(settings.kocharacters_db_path, THUMBNAIL_SIZE_KEY, str(size))
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kocharacters/settings", status_code=303)
 
 
 @router.post("/settings/restore/{book_id}")
