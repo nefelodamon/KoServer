@@ -276,7 +276,7 @@ def upsert_characters(db_path: Path, book_id: str, characters: list[dict]) -> No
             json.dumps(c.get("relationships") or []),
             c.get("first_appearance_quote") or "",
             c.get("user_notes") or "",
-            Path(c.get("portrait_path") or "").name,
+            Path(c.get("portrait_path") or c.get("portrait_file") or "").name,
             c.get("source_page"),
             c.get("first_seen_page"),
             1 if c.get("unlocked", True) else 0,
