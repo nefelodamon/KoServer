@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.auth import (
@@ -33,6 +33,21 @@ def _base_url(request: Request) -> str:
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost")
     scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
     return f"{scheme}://{host}"
+
+
+def _ha_url(request: Request) -> str:
+    """External HA URL for browser redirects.
+
+    Uses ha_url from config if set, otherwise derives it from the incoming
+    request by keeping the same hostname but switching to port 8123.
+    """
+    settings = get_settings()
+    if settings.ha_url:
+        return settings.ha_url
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost")
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
+    hostname = host.split(":")[0]
+    return f"{scheme}://{hostname}:8123"
 
 
 @asynccontextmanager
@@ -70,13 +85,6 @@ async def root(request: Request):
 
 @app.get("/login")
 async def login(request: Request):
-    settings = get_settings()
-    if not settings.ha_url:
-        return HTMLResponse(
-            "<h1>Configuration error</h1><p>Set <code>ha_url</code> in the add-on options "
-            "(e.g. <code>https://your-ha:8123</code>).</p>",
-            status_code=503,
-        )
     client_id = _base_url(request) + "/"
     redirect_uri = _base_url(request) + "/auth/callback"
     params = urlencode({
@@ -84,7 +92,7 @@ async def login(request: Request):
         "client_id": client_id,
         "redirect_uri": redirect_uri,
     })
-    return RedirectResponse(url=f"{settings.ha_url}/auth/authorize?{params}")
+    return RedirectResponse(url=f"{_ha_url(request)}/auth/authorize?{params}")
 
 
 @app.get("/auth/callback")
