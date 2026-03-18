@@ -38,16 +38,19 @@ def _base_url(request: Request) -> str:
 def _ha_url(request: Request) -> str:
     """External HA URL for browser redirects.
 
-    Uses ha_url from config if set, otherwise derives it from the incoming
-    request by keeping the same hostname but switching to port 8123.
+    Derived from the incoming request: same hostname, port 8123.
+    Override with ha_url in add-on options only if HA is on a different host.
     """
     settings = get_settings()
-    if settings.ha_url:
-        return settings.ha_url
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost")
     scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
     hostname = host.split(":")[0]
-    return f"{scheme}://{hostname}:8123"
+    derived = f"{scheme}://{hostname}:8123"
+    # Only use configured ha_url if it looks like an external address
+    configured = settings.ha_url
+    if configured and "homeassistant" not in configured and "supervisor" not in configured:
+        return configured
+    return derived
 
 
 @asynccontextmanager
