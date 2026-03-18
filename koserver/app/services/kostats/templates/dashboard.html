@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}KoStats — Dashboard{% endblock %}
+{% block nav_kostats %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>KoStats</h1>
+  <span class="book-count">{{ users | length }} user{{ 's' if users | length != 1 }}</span>
+</div>
+
+{% if users %}
+  {% for user in users %}
+  <div style="margin-bottom:2rem">
+    <h2 style="margin-bottom:0.5rem">{{ user.username }}
+      <span class="meta-badge" style="font-size:0.8rem;font-weight:normal">
+        last upload: {{ user.last_upload[:16] if user.last_upload else 'never' }}
+      </span>
+    </h2>
+    {% set files = user_files[user.username] %}
+    {% if files %}
+    <table class="recycle-table">
+      <thead>
+        <tr><th>File</th><th>Size</th><th>Modified</th></tr>
+      </thead>
+      <tbody>
+      {% for f in files %}
+        <tr>
+          <td style="font-family:monospace">{{ f.path }}</td>
+          <td>{{ (f.size / 1024) | round(1) }} KB</td>
+          <td>{{ f.modified }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">No files uploaded yet.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📊</div>
+  <h2>No users yet</h2>
+  <p>Create a user in Settings, then configure KOReader:</p>
+  <p><strong>KOReader → Settings → Cloud → WebDAV</strong></p>
+  <code class="upload-hint">{{ request.url.scheme }}://{{ request.headers.get('host', '') }}/services/kostats/dav</code>
+</div>
+{% endif %}
+{% endblock %}

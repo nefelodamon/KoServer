@@ -15,6 +15,7 @@ class Settings:
         self.share_dir: Path = Path("/share/koserver")
         self.portraits_dir: Path = self.share_dir / "portraits"
         self.db_path: Path = self.share_dir / "koserver.db"
+        self.kostats_dir: Path = self.share_dir / "kostats"
 
     @staticmethod
     def _load_options() -> dict:

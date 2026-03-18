@@ -19,6 +19,8 @@ from app.services.kocharacters import router as kocharacters_router
 from app.services.kocharacters.storage import init_db as init_kocharacters_db
 from app.services.kosync import router as kosync_router
 from app.services.kosync.storage import init_db as init_kosync_db
+from app.services.kostats import router as kostats_router
+from app.services.kostats.storage import init_db as init_kostats_db
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +62,11 @@ async def lifespan(app: FastAPI):
     logger.info("KoServer starting %s", VERSION)
     settings = get_settings()
     settings.portraits_dir.mkdir(parents=True, exist_ok=True)
+    settings.kostats_dir.mkdir(parents=True, exist_ok=True)
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     await init_kocharacters_db(settings.db_path)
     await init_kosync_db(settings.db_path)
+    await init_kostats_db(settings.db_path)
     yield
 
 
@@ -78,6 +82,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(kocharacters_router.router, prefix="/services/kocharacters")
 app.include_router(kosync_router.router, prefix="/services/kosync")
+app.include_router(kostats_router.router, prefix="/services/kostats")
 
 
 @app.get("/health")
