@@ -88,7 +88,9 @@ async def init_db(db_path: Path) -> None:
         row[1] for row in conn.execute("PRAGMA table_info(characters)").fetchall()
     }
     if "character_id" not in existing_cols or _unique_is_name_based(conn):
-        conn.executescript("""
+        has_char_id = "character_id" in existing_cols
+        char_id_expr = "CASE WHEN character_id != '' THEN character_id ELSE name END" if has_char_id else "name"
+        conn.executescript(f"""
             CREATE TABLE IF NOT EXISTS characters_new (
                 id                   INTEGER PRIMARY KEY AUTOINCREMENT,
                 book_id              TEXT    NOT NULL REFERENCES books(book_id) ON DELETE CASCADE,
@@ -110,8 +112,7 @@ async def init_db(db_path: Path) -> None:
                 UNIQUE(book_id, character_id)
             );
             INSERT INTO characters_new
-                SELECT id, book_id,
-                    CASE WHEN character_id != '' THEN character_id ELSE name END,
+                SELECT id, book_id, {char_id_expr},
                     name, aliases, role, occupation, physical_description,
                     personality, relationships, first_appearance_quote,
                     user_notes, portrait_file, source_page, first_seen_page,
