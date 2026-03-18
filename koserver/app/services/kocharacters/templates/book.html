@@ -56,7 +56,26 @@
     </div>
     {% endif %}
 
-    {% if book.percent_finished is not none %}
+    {% if kosync_progress %}
+    <div class="book-meta-row" style="align-items:flex-start">
+      <span class="book-meta-label" style="padding-top:0.2rem">Progress</span>
+      <div style="flex:1; display:flex; flex-direction:column; gap:0.5rem">
+        {% for p in kosync_progress %}
+        <div>
+          <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.2rem">
+            {{ p.username }}{% if p.device %} · {{ p.device }}{% endif %} · {{ p.updated_at[:10] }}
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar-bg" style="height:8px">
+              <div class="progress-bar-fill" style="width:{{ [p.percentage * 100, 100] | min | int }}%; height:8px"></div>
+            </div>
+            <span class="progress-pct">{{ (p.percentage * 100) | round(1) }}%</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% elif book.percent_finished is not none %}
     <div class="book-meta-row">
       <span class="book-meta-label">Progress</span>
       <div class="progress-wrap" style="flex:1">

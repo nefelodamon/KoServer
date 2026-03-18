@@ -163,6 +163,16 @@ def list_all_progress(db_path: Path) -> list[ReadingProgress]:
     return [_row_to_progress(r) for r in rows]
 
 
+def get_progress_by_document(db_path: Path, document: str) -> list[ReadingProgress]:
+    conn = _connect(db_path)
+    rows = conn.execute(
+        "SELECT * FROM kosync_progress WHERE document = ? ORDER BY updated_at DESC",
+        (document,),
+    ).fetchall()
+    conn.close()
+    return [_row_to_progress(r) for r in rows]
+
+
 def list_user_progress(db_path: Path, username: str) -> list[ReadingProgress]:
     conn = _connect(db_path)
     rows = conn.execute(

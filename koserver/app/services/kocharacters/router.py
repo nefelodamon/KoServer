@@ -19,6 +19,7 @@ from app.auth import require_api_key, require_ha_auth
 from app.config import get_settings
 from app.services.kocharacters import storage
 from app.services.kocharacters.storage import DEFAULT_THUMBNAIL_SIZE, THUMBNAIL_SIZE_KEY
+from app.services.kosync import storage as kosync_storage
 
 logger = logging.getLogger(__name__)
 
@@ -214,9 +215,13 @@ async def book_detail(
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
     characters = storage.get_characters(settings.kocharacters_db_path, book_id)
+    kosync_progress = (
+        kosync_storage.get_progress_by_document(settings.kosync_db_path, book.partial_md5)
+        if book.partial_md5 else []
+    )
     return templates.TemplateResponse(
         "book.html",
-        {"request": request, "book": book, "characters": characters},
+        {"request": request, "book": book, "characters": characters, "kosync_progress": kosync_progress},
     )
 
 
