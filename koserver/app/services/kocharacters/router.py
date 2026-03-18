@@ -18,7 +18,7 @@ from app.auth import require_api_key, require_ha_auth
 
 logger = logging.getLogger(__name__)
 
-_THUMB_SIZE = (200, 200)
+_THUMB_SIZE = (400, 400)
 from app.config import get_settings
 from app.services.kocharacters import storage
 
