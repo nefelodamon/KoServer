@@ -27,12 +27,27 @@ async def init_db(db_path: Path) -> None:
         );
 
         CREATE TABLE IF NOT EXISTS books (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            book_id     TEXT    NOT NULL UNIQUE,
-            title       TEXT    NOT NULL,
-            context     TEXT    NOT NULL DEFAULT '',
-            uploaded_at TEXT    NOT NULL DEFAULT (datetime('now')),
-            deleted_at  TEXT    DEFAULT NULL
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_id          TEXT    NOT NULL UNIQUE,
+            title            TEXT    NOT NULL,
+            authors          TEXT    NOT NULL DEFAULT '',
+            series           TEXT    NOT NULL DEFAULT '',
+            series_index     REAL,
+            language         TEXT    NOT NULL DEFAULT '',
+            description      TEXT    NOT NULL DEFAULT '',
+            identifiers      TEXT    NOT NULL DEFAULT '{}',
+            keywords         TEXT    NOT NULL DEFAULT '[]',
+            total_pages      INTEGER,
+            percent_finished REAL,
+            reading_status   TEXT    NOT NULL DEFAULT '',
+            last_read        TEXT    NOT NULL DEFAULT '',
+            highlights       INTEGER,
+            notes            INTEGER,
+            partial_md5      TEXT    NOT NULL DEFAULT '',
+            cover_filename   TEXT    NOT NULL DEFAULT '',
+            context          TEXT    NOT NULL DEFAULT '',
+            uploaded_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+            deleted_at       TEXT    DEFAULT NULL
         );
 
         CREATE TABLE IF NOT EXISTS characters (
@@ -56,12 +71,31 @@ async def init_db(db_path: Path) -> None:
         );
     """)
     conn.commit()
-    # Migration: add deleted_at to existing databases
-    try:
-        conn.execute("ALTER TABLE books ADD COLUMN deleted_at TEXT DEFAULT NULL")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+    # Migrations: add columns that may not exist in older databases
+    _migrations = [
+        "ALTER TABLE books ADD COLUMN deleted_at TEXT DEFAULT NULL",
+        "ALTER TABLE books ADD COLUMN authors TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE books ADD COLUMN series TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE books ADD COLUMN series_index REAL",
+        "ALTER TABLE books ADD COLUMN language TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE books ADD COLUMN description TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE books ADD COLUMN identifiers TEXT NOT NULL DEFAULT '{}'",
+        "ALTER TABLE books ADD COLUMN keywords TEXT NOT NULL DEFAULT '[]'",
+        "ALTER TABLE books ADD COLUMN total_pages INTEGER",
+        "ALTER TABLE books ADD COLUMN percent_finished REAL",
+        "ALTER TABLE books ADD COLUMN reading_status TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE books ADD COLUMN last_read TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE books ADD COLUMN highlights INTEGER",
+        "ALTER TABLE books ADD COLUMN notes INTEGER",
+        "ALTER TABLE books ADD COLUMN partial_md5 TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE books ADD COLUMN cover_filename TEXT NOT NULL DEFAULT ''",
+    ]
+    for sql in _migrations:
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Column already exists
     conn.close()
 
 
@@ -94,6 +128,21 @@ def _row_to_book(row: sqlite3.Row, character_count: int = 0) -> Book:
         uploaded_at=row["uploaded_at"],
         deleted_at=row["deleted_at"],
         character_count=character_count,
+        authors=row["authors"] or "",
+        series=row["series"] or "",
+        series_index=row["series_index"],
+        language=row["language"] or "",
+        description=row["description"] or "",
+        identifiers=json.loads(row["identifiers"] or "{}"),
+        keywords=json.loads(row["keywords"] or "[]"),
+        total_pages=row["total_pages"],
+        percent_finished=row["percent_finished"],
+        reading_status=row["reading_status"] or "",
+        last_read=row["last_read"] or "",
+        highlights=row["highlights"],
+        notes=row["notes"],
+        partial_md5=row["partial_md5"] or "",
+        cover_filename=row["cover_filename"] or "",
     )
 
 
@@ -118,16 +167,58 @@ def _row_to_character(row: sqlite3.Row) -> Character:
     )
 
 
-def upsert_book(db_path: Path, book_id: str, title: str, context: str) -> None:
+def upsert_book(
+    db_path: Path,
+    book_id: str,
+    title: str,
+    context: str = "",
+    authors: str = "",
+    series: str = "",
+    series_index: float | None = None,
+    language: str = "",
+    description: str = "",
+    identifiers: str = "{}",
+    keywords: str = "[]",
+    total_pages: int | None = None,
+    percent_finished: float | None = None,
+    reading_status: str = "",
+    last_read: str = "",
+    highlights: int | None = None,
+    notes: int | None = None,
+    partial_md5: str = "",
+    cover_filename: str = "",
+) -> None:
     conn = _connect(db_path)
     conn.execute("""
-        INSERT INTO books (book_id, title, context, uploaded_at)
-        VALUES (?, ?, ?, datetime('now'))
+        INSERT INTO books (
+            book_id, title, authors, series, series_index, language, description,
+            identifiers, keywords, total_pages, percent_finished, reading_status,
+            last_read, highlights, notes, partial_md5, cover_filename, context, uploaded_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(book_id) DO UPDATE SET
-            title       = excluded.title,
-            context     = excluded.context,
-            uploaded_at = excluded.uploaded_at
-    """, (book_id, title, context))
+            title            = excluded.title,
+            authors          = excluded.authors,
+            series           = excluded.series,
+            series_index     = excluded.series_index,
+            language         = excluded.language,
+            description      = excluded.description,
+            identifiers      = excluded.identifiers,
+            keywords         = excluded.keywords,
+            total_pages      = excluded.total_pages,
+            percent_finished = excluded.percent_finished,
+            reading_status   = excluded.reading_status,
+            last_read        = excluded.last_read,
+            highlights       = excluded.highlights,
+            notes            = excluded.notes,
+            partial_md5      = excluded.partial_md5,
+            cover_filename   = excluded.cover_filename,
+            context          = excluded.context,
+            uploaded_at      = excluded.uploaded_at
+    """, (
+        book_id, title, authors, series, series_index, language, description,
+        identifiers, keywords, total_pages, percent_finished, reading_status,
+        last_read, highlights, notes, partial_md5, cover_filename, context,
+    ))
     conn.commit()
     conn.close()
 
@@ -185,7 +276,7 @@ def upsert_characters(db_path: Path, book_id: str, characters: list[dict]) -> No
             json.dumps(c.get("relationships") or []),
             c.get("first_appearance_quote") or "",
             c.get("user_notes") or "",
-            c.get("portrait_file") or "",
+            Path(c.get("portrait_path") or "").name,
             c.get("source_page"),
             c.get("first_seen_page"),
             1 if c.get("unlocked", True) else 0,

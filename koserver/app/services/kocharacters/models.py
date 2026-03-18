@@ -31,3 +31,19 @@ class Book:
     uploaded_at: str = ""
     deleted_at: Optional[str] = None
     character_count: int = 0
+    # book_meta.json fields
+    authors: str = ""
+    series: str = ""
+    series_index: Optional[float] = None
+    language: str = ""
+    description: str = ""
+    identifiers: dict = field(default_factory=dict)
+    keywords: list[str] = field(default_factory=list)
+    total_pages: Optional[int] = None
+    percent_finished: Optional[float] = None
+    reading_status: str = ""
+    last_read: str = ""
+    highlights: Optional[int] = None
+    notes: Optional[int] = None
+    partial_md5: str = ""
+    cover_filename: str = ""

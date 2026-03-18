@@ -100,13 +100,26 @@ async def upload_archive(
     book_id = _book_id_from_name(fname or prefix.strip("/"))
     title = fname.replace("_", " ").rsplit(" ", 1)[0] if "_" in fname else fname
 
-    # Read optional book_context.txt
-    context = ""
-    context_path = f"{prefix}book_context.txt"
-    if context_path in names:
-        context = tf.extractfile(tf.getmember(context_path)).read().decode("utf-8", errors="replace").strip()
+    # Parse optional book_meta.json (preferred) or fall back to book_context.txt
+    meta: dict = {}
+    meta_path = f"{prefix}book_meta.json"
+    if meta_path in names:
+        try:
+            meta = json.loads(tf.extractfile(tf.getmember(meta_path)).read().decode("utf-8"))
+        except Exception as exc:
+            logger.warning("Failed to parse book_meta.json: %s", exc)
 
-    # Extract portraits
+    # Derive title: prefer book_meta, then filename stem
+    title = meta.get("title") or title
+
+    # Context: prefer book_meta.book_context, fall back to book_context.txt
+    context = meta.get("book_context", "")
+    if not context:
+        context_path = f"{prefix}book_context.txt"
+        if context_path in names:
+            context = tf.extractfile(tf.getmember(context_path)).read().decode("utf-8", errors="replace").strip()
+
+    # Extract portraits and optional cover
     portrait_dir = settings.portraits_dir / book_id
     portrait_dir.mkdir(parents=True, exist_ok=True)
     thumb_size = int(storage.get_setting(
@@ -126,15 +139,50 @@ async def upload_archive(
                         await f.write(data)
                     _make_thumbnail(dest, thumb_size)
 
+    cover_filename = ""
+    if meta.get("cover"):
+        cover_arc_path = f"{prefix}{meta['cover']}"
+        if cover_arc_path in names:
+            try:
+                cover_data = tf.extractfile(tf.getmember(cover_arc_path)).read()
+                cover_filename = Path(meta["cover"]).name
+                async with aiofiles.open(portrait_dir / cover_filename, "wb") as f:
+                    await f.write(cover_data)
+            except Exception as exc:
+                logger.warning("Failed to extract cover: %s", exc)
+
     # Persist to DB
-    storage.upsert_book(settings.kocharacters_db_path, book_id, title, context)
+    storage.upsert_book(
+        settings.kocharacters_db_path,
+        book_id,
+        title=title,
+        context=context,
+        authors=meta.get("authors", ""),
+        series=meta.get("series", ""),
+        series_index=meta.get("series_index"),
+        language=meta.get("language", ""),
+        description=meta.get("description", ""),
+        identifiers=json.dumps(meta.get("identifiers") or {}),
+        keywords=json.dumps(meta.get("keywords") or []),
+        total_pages=meta.get("total_pages"),
+        percent_finished=meta.get("percent_finished"),
+        reading_status=meta.get("reading_status", ""),
+        last_read=meta.get("last_read", ""),
+        highlights=meta.get("highlights"),
+        notes=meta.get("notes"),
+        partial_md5=meta.get("partial_md5", ""),
+        cover_filename=cover_filename,
+    )
     storage.upsert_characters(settings.kocharacters_db_path, book_id, characters_raw)
 
     return {
         "status": "ok",
         "book_id": book_id,
         "title": title,
+        "authors": meta.get("authors", ""),
+        "series": meta.get("series", ""),
         "characters_imported": len(characters_raw),
+        "has_cover": bool(cover_filename),
     }
 
 
