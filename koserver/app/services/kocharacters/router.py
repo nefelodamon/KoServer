@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import re
 import shutil
 import tarfile
@@ -7,12 +8,17 @@ from pathlib import Path
 from typing import Annotated
 
 import aiofiles
+from PIL import Image
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
 from app.auth import require_api_key, require_ha_auth
+
+logger = logging.getLogger(__name__)
+
+_THUMB_SIZE = (200, 200)
 from app.config import get_settings
 from app.services.kocharacters import storage
 
@@ -29,6 +35,17 @@ templates = Jinja2Templates(env=Environment(
 ))
 
 router = APIRouter()
+
+
+def _make_thumbnail(source: Path) -> None:
+    try:
+        thumb_dir = source.parent / "thumbnails"
+        thumb_dir.mkdir(exist_ok=True)
+        with Image.open(source) as img:
+            img.thumbnail(_THUMB_SIZE, Image.LANCZOS)
+            img.save(thumb_dir / source.name, "PNG", optimize=True)
+    except Exception as exc:
+        logger.warning("Thumbnail generation failed for %s: %s", source.name, exc)
 
 
 def _book_id_from_name(name: str) -> str:
@@ -100,9 +117,11 @@ async def upload_archive(
             if filename:
                 member = tf.getmember(name)
                 if member.isfile():
+                    data = tf.extractfile(member).read()
                     dest = portrait_dir / filename
                     async with aiofiles.open(dest, "wb") as f:
-                        await f.write(tf.extractfile(member).read())
+                        await f.write(data)
+                    _make_thumbnail(dest)
 
     # Persist to DB
     storage.upsert_book(settings.db_path, book_id, title, context)
@@ -232,23 +251,36 @@ async def debug(
     )
 
 
+@router.get("/portraits/{book_id}/thumbnails/{filename}")
+async def serve_thumbnail(
+    book_id: str,
+    filename: str,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    from fastapi.responses import Response
+    settings = get_settings()
+    safe_filename = Path(filename).name
+    thumb_path = settings.portraits_dir / book_id / "thumbnails" / safe_filename
+    # Fall back to full-size if thumbnail not yet generated
+    full_path = settings.portraits_dir / book_id / safe_filename
+    for path in (thumb_path, full_path):
+        if path.exists() and path.is_file():
+            return FileResponse(str(path), media_type="image/png")
+    return Response(content=_placeholder_svg(), media_type="image/svg+xml")
+
+
 @router.get("/portraits/{book_id}/{filename}")
 async def serve_portrait(
     book_id: str,
     filename: str,
     _: Annotated[str, Depends(require_ha_auth)],
 ):
+    from fastapi.responses import Response
     settings = get_settings()
-    # Sanitize to prevent path traversal
     safe_filename = Path(filename).name
     portrait_path = settings.portraits_dir / book_id / safe_filename
-
     if not portrait_path.exists() or not portrait_path.is_file():
-        # Return placeholder SVG
-        placeholder = _placeholder_svg()
-        from fastapi.responses import Response
-        return Response(content=placeholder, media_type="image/svg+xml")
-
+        return Response(content=_placeholder_svg(), media_type="image/svg+xml")
     return FileResponse(str(portrait_path), media_type="image/png")
 
 

@@ -28,7 +28,7 @@
     <div class="character-portrait-wrap {% if not char.unlocked %}spoiler-blur{% endif %}">
       <img
         class="character-portrait"
-        src="{{ root }}/services/kocharacters/portraits/{{ book.book_id }}/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
+        src="{{ root }}/services/kocharacters/portraits/{{ book.book_id }}/thumbnails/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
         alt="Portrait of {{ char.name }}"
         loading="lazy"
         onerror="this.src='{{ root }}/static/placeholder.svg'"
