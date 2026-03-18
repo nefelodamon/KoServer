@@ -20,28 +20,13 @@
         </a>
       </li>
       <li>
-        <a href="{{ root }}/services/kocharacters/settings" class="nav-link nav-sub {% block nav_kocharacters_settings %}{% endblock %}">
-          <span class="nav-icon">⚙️</span> Settings
-        </a>
-      </li>
-      <li>
         <a href="{{ root }}/services/kosync" class="nav-link {% block nav_kosync %}{% endblock %}">
           <span class="nav-icon">🔄</span> KoSync
         </a>
       </li>
       <li>
-        <a href="{{ root }}/services/kosync/settings" class="nav-link nav-sub {% block nav_kosync_settings %}{% endblock %}">
-          <span class="nav-icon">⚙️</span> Settings
-        </a>
-      </li>
-      <li>
         <a href="{{ root }}/services/kostats" class="nav-link {% block nav_kostats %}{% endblock %}">
           <span class="nav-icon">📊</span> KoStats
-        </a>
-      </li>
-      <li>
-        <a href="{{ root }}/services/kostats/settings" class="nav-link nav-sub {% block nav_kostats_settings %}{% endblock %}">
-          <span class="nav-icon">⚙️</span> Settings
         </a>
       </li>
       {# Future services inserted here #}
@@ -54,6 +39,9 @@
   </nav>
 
   <main class="content">
+    {% if self.header_actions() | trim %}
+    <div class="header-actions">{% block header_actions %}{% endblock %}</div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 

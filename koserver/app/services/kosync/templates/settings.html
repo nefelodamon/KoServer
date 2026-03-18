@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}KoSync — Settings{% endblock %}
 {% block nav_kosync %}active{% endblock %}
-{% block nav_kosync_settings %}active{% endblock %}
 
 {% block content %}
 <div class="page-header">
+  <a href="{{ root }}/services/kosync" class="back-link">← KoSync</a>
   <h1>KoSync Settings</h1>
 </div>
 
@@ -17,7 +17,7 @@
       Allow new user registrations
     </label>
   </form>
-  <p class="empty-note">When disabled, KOReader devices cannot create new accounts on this server.</p>
+  <p class="empty-note" style="margin-top:0.75rem">When disabled, KOReader devices cannot create new accounts on this server.</p>
 </section>
 
 <section class="settings-section">

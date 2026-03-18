@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}KoSync — {{ user.username }}{% endblock %}
+{% block nav_kosync %}active{% endblock %}
+
+{% block header_actions %}
+<a href="{{ root }}/services/kosync/settings" class="btn-icon" title="Settings">⚙️</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="{{ root }}/services/kosync" class="back-link">← KoSync</a>
+  <h1>{{ user.username }}</h1>
+  <span class="book-count">{{ progress | length }} document{{ 's' if progress | length != 1 }}</span>
+</div>
+
+<div style="display:flex; gap:1.5rem; margin-bottom:1.5rem; flex-wrap:wrap">
+  <span class="meta-badge">Joined {{ user.created_at[:10] if user.created_at else '—' }}</span>
+  <span class="meta-badge">Last sync {{ user.last_sync[:16] if user.last_sync else 'never' }}</span>
+</div>
+
+{% if progress %}
+<table class="recycle-table">
+  <thead>
+    <tr>
+      <th>Document</th>
+      <th>Progress</th>
+      <th>Device</th>
+      <th>Updated</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in progress %}
+    <tr>
+      <td><span class="doc-name" title="{{ p.document }}">{{ p.document.split('/')[-1] or p.document }}</span></td>
+      <td>
+        <div class="progress-wrap">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:{{ [p.percentage * 100, 100] | min | int }}%"></div></div>
+          <span class="progress-pct">{{ (p.percentage * 100) | round(1) }}%</span>
+        </div>
+      </td>
+      <td style="font-size:0.85rem; color:var(--text-muted)">{{ p.device or '—' }}</td>
+      <td style="font-size:0.82rem; color:var(--text-muted)">{{ p.updated_at[:16] if p.updated_at else '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📖</div>
+  <h2>No sync data yet</h2>
+  <p>This user hasn't synced any reading progress.</p>
+</div>
+{% endif %}
+{% endblock %}

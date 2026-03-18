@@ -137,8 +137,10 @@ def get_progress(db_path: Path, username: str, document: str) -> ReadingProgress
         (username, document),
     ).fetchone()
     conn.close()
-    if not row:
-        return None
+    return _row_to_progress(row) if row else None
+
+
+def _row_to_progress(row: sqlite3.Row) -> ReadingProgress:
     return ReadingProgress(
         id=row["id"],
         username=row["username"],
@@ -150,6 +152,25 @@ def get_progress(db_path: Path, username: str, document: str) -> ReadingProgress
         timestamp=row["timestamp"],
         updated_at=row["updated_at"],
     )
+
+
+def list_all_progress(db_path: Path) -> list[ReadingProgress]:
+    conn = _connect(db_path)
+    rows = conn.execute(
+        "SELECT * FROM kosync_progress ORDER BY updated_at DESC"
+    ).fetchall()
+    conn.close()
+    return [_row_to_progress(r) for r in rows]
+
+
+def list_user_progress(db_path: Path, username: str) -> list[ReadingProgress]:
+    conn = _connect(db_path)
+    rows = conn.execute(
+        "SELECT * FROM kosync_progress WHERE username = ? ORDER BY updated_at DESC",
+        (username,),
+    ).fetchall()
+    conn.close()
+    return [_row_to_progress(r) for r in rows]
 
 
 def list_users(db_path: Path) -> list[KoSyncUser]:

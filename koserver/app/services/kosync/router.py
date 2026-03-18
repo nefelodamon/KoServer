@@ -129,8 +129,26 @@ async def dashboard(
 ):
     settings = get_settings()
     users = storage.list_users(settings.kosync_db_path)
+    all_progress = storage.list_all_progress(settings.kosync_db_path)
     return templates.TemplateResponse(
-        "dashboard.html", {"request": request, "users": users}
+        "dashboard.html", {"request": request, "users": users, "all_progress": all_progress}
+    )
+
+
+@router.get("/users/{username}", response_class=HTMLResponse)
+async def user_detail(
+    username: str,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    users = storage.list_users(settings.kosync_db_path)
+    user = next((u for u in users if u.username == username), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    progress = storage.list_user_progress(settings.kosync_db_path, username)
+    return templates.TemplateResponse(
+        "user_detail.html", {"request": request, "user": user, "progress": progress}
     )
 
 
