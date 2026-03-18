@@ -8,11 +8,115 @@
   <h1>{{ book.title }}</h1>
 </div>
 
-{% if book.context %}
-<p class="book-context-full">{{ book.context }}</p>
+{# ── Book metadata ── #}
+<div class="book-detail-meta">
+
+  {% if book.cover_filename %}
+  <img
+    class="book-cover-img"
+    src="{{ root }}/services/kocharacters/portraits/{{ book.book_id }}/{{ book.cover_filename }}"
+    alt="Cover of {{ book.title }}"
+  />
+  {% endif %}
+
+  <div class="book-detail-info">
+
+    {% if book.authors %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Author</span>
+      <span>{{ book.authors }}</span>
+    </div>
+    {% endif %}
+
+    {% if book.series %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Series</span>
+      <span>{{ book.series }}{% if book.series_index is not none %} #{{ book.series_index | int if book.series_index == book.series_index | int else book.series_index }}{% endif %}</span>
+    </div>
+    {% endif %}
+
+    {% if book.language %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Language</span>
+      <span>{{ book.language }}</span>
+    </div>
+    {% endif %}
+
+    {% if book.total_pages %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Pages</span>
+      <span>{{ book.total_pages }}</span>
+    </div>
+    {% endif %}
+
+    {% if book.reading_status %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Status</span>
+      <span class="meta-badge">{{ book.reading_status }}</span>
+    </div>
+    {% endif %}
+
+    {% if book.percent_finished is not none %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Progress</span>
+      <div class="progress-wrap" style="flex:1">
+        <div class="progress-bar-bg" style="height:8px">
+          <div class="progress-bar-fill" style="width:{{ [book.percent_finished, 100] | min | int }}%; height:8px"></div>
+        </div>
+        <span class="progress-pct">{{ book.percent_finished | round(1) }}%</span>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if book.last_read %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Last read</span>
+      <span class="meta-date">{{ book.last_read[:10] }}</span>
+    </div>
+    {% endif %}
+
+    {% if book.highlights or book.notes %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Activity</span>
+      <span>
+        {% if book.highlights %}{{ book.highlights }} highlight{{ 's' if book.highlights != 1 }}{% endif %}
+        {% if book.highlights and book.notes %} · {% endif %}
+        {% if book.notes %}{{ book.notes }} note{{ 's' if book.notes != 1 }}{% endif %}
+      </span>
+    </div>
+    {% endif %}
+
+    {% if book.keywords %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Keywords</span>
+      <span class="book-keywords">
+        {% for kw in book.keywords %}<span class="meta-badge" style="margin-right:0.25rem">{{ kw }}</span>{% endfor %}
+      </span>
+    </div>
+    {% endif %}
+
+    {% if book.identifiers %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">IDs</span>
+      <span style="font-size:0.82rem; color:var(--text-muted)">
+        {% for k, v in book.identifiers.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}
+      </span>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% if book.description %}
+<p class="book-context-full" style="margin-top:1.25rem">{{ book.description }}</p>
 {% endif %}
 
-<div class="character-stats">
+{% if book.context %}
+<p class="book-context-full" style="{% if book.description %}margin-top:0.5rem; font-style:italic;{% endif %}">{{ book.context }}</p>
+{% endif %}
+
+{# ── Characters ── #}
+<div class="character-stats" style="margin-top:1.25rem">
   <span class="meta-badge">{{ characters | length }} character{{ 's' if characters | length != 1 }}</span>
   {% set locked_count = characters | selectattr('unlocked', 'equalto', false) | list | length %}
   {% if locked_count > 0 %}
@@ -112,7 +216,7 @@
 <div class="empty-state">
   <div class="empty-icon">🕵️</div>
   <h2>No characters found</h2>
-  <p>Re-upload the ZIP to refresh character data.</p>
+  <p>Re-upload the archive to refresh character data.</p>
 </div>
 {% endif %}
 {% endblock %}
