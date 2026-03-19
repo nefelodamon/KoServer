@@ -85,7 +85,7 @@
     <div class="bar-col">
       <div class="bar" style="height:{{ px }}px" title="{{ d.date }}: {{ d.minutes | mins_hm }}"></div>
       <div class="bar-x-label">
-        {% if loop.index in [1, 8, 15, 22, 30] %}{{ d.date[5:] }}{% endif %}
+        {% if loop.index in [1, 8, 15, 22, 30] %}{{ d.date[8:] }}-{{ d.date[5:7] }}{% endif %}
       </div>
     </div>
     {% endfor %}
@@ -100,7 +100,8 @@
     {% set px = ((m.hours / stats.max_monthly_hours) * 90) | int %}
     <div class="bar-col">
       <div class="bar" style="height:{{ px }}px;background:var(--role-supporting)" title="{{ m.month }}: {{ (m.hours * 60) | mins_hm }}"></div>
-      <div class="bar-x-label">{{ m.month[2:] }}</div>
+      {% set _mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+      <div class="bar-x-label">{{ _mn[m.month[5:7]|int - 1] }} {{ m.month[2:4] }}</div>
     </div>
     {% endfor %}
   </div>
