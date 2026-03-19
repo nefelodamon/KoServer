@@ -432,8 +432,14 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                 except (ValueError, TypeError):
                     continue
 
-                # Skip if unchanged and cover already exists
+                # A Phase 2 record may have stored this book under the .epub path;
+                # find it either way so we update in-place rather than duplicate
                 existing = storage.get_book_by_path(db_path, device_id, book_path)
+                if existing is None and not book_path.lower().endswith(".epub"):
+                    existing = storage.get_book_by_path(db_path, device_id, book_path + ".epub")
+                # Reuse whichever path is already in the DB to avoid creating a duplicate row
+                effective_path = existing.file_path if existing else book_path
+
                 if existing and existing.file_mtime == mtime and existing.cover_file:
                     continue
 
@@ -454,7 +460,7 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                         logger.debug("KoLibrary: cover already stored for %s", book_path)
 
                     op = storage.upsert_book(
-                        db_path, device_id, book_path, mtime,
+                        db_path, device_id, effective_path, mtime,
                         title=meta["title"] or book_basename,
                         authors=meta["authors"],
                         series=meta["series"],
@@ -537,7 +543,7 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                         cover_file=cover_file,
                         progress_pct=0.0,
                         md5=None,
-                        status="",
+                        status="tbr",
                     )
                     if op == "added":
                         added += 1
