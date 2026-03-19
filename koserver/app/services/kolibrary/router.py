@@ -1,6 +1,10 @@
+import asyncio
 import logging
+import socket
 from pathlib import Path
 from typing import Annotated
+
+import asyncssh
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -96,8 +100,6 @@ async def test_connection(
     device_id: int,
     _: Annotated[str, Depends(require_ha_auth)],
 ):
-    import asyncio
-    import socket
     settings = get_settings()
     device = storage.get_device(settings.kolibrary_db_path, device_id)
     if not device:
@@ -163,7 +165,6 @@ async def trigger_sync(
     device = storage.get_device(settings.kolibrary_db_path, device_id)
     if not device:
         raise HTTPException(status_code=404)
-    import asyncio
     asyncio.create_task(sync.sync_device(
         device_id,
         settings.kolibrary_db_path,
