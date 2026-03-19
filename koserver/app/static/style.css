@@ -163,6 +163,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .book-cover-icon { font-size: 3rem; }
+.book-card-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .book-card-body { padding: 1rem; flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
 

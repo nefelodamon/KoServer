@@ -18,7 +18,14 @@
   <div class="book-card-wrap">
     <a href="{{ root }}/services/kocharacters/books/{{ book.book_id }}" class="book-card">
       <div class="book-card-cover">
+        {% if book.cover_filename %}
+        <img src="{{ root }}/services/kocharacters/portraits/{{ book.book_id }}/{{ book.cover_filename }}"
+             alt="{{ book.title }}" class="book-card-cover-img"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+        <span class="book-cover-icon" style="display:none">📖</span>
+        {% else %}
         <span class="book-cover-icon">📖</span>
+        {% endif %}
       </div>
       <div class="book-card-body">
         <h2 class="book-title">{{ book.title }}</h2>
