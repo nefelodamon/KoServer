@@ -185,6 +185,106 @@ def _parse_opf_cover(content: str, opf_path: str) -> Optional[str]:
     return None
 
 
+def _parse_opf_metadata(opf_content: str) -> dict:
+    """Extract Dublin Core + Calibre metadata from OPF file content."""
+    result: dict = {
+        "title": "", "authors": "", "series": "", "series_index": None,
+        "language": "", "pages": 0, "description": "",
+    }
+
+    m = re.search(r'<(?:\w+:)?title\b[^>]*>([^<]+)</(?:\w+:)?title>', opf_content, re.IGNORECASE)
+    if m:
+        result["title"] = m.group(1).strip()
+
+    creators = re.findall(r'<(?:\w+:)?creator\b[^>]*>([^<]+)</(?:\w+:)?creator>', opf_content, re.IGNORECASE)
+    if creators:
+        result["authors"] = ", ".join(a.strip() for a in creators)
+
+    m = re.search(r'<(?:\w+:)?description\b[^>]*>([\s\S]*?)</(?:\w+:)?description>', opf_content, re.IGNORECASE)
+    if m:
+        result["description"] = re.sub(r'<[^>]+>', '', m.group(1)).strip()
+
+    m = re.search(r'<(?:\w+:)?language\b[^>]*>([^<]+)</(?:\w+:)?language>', opf_content, re.IGNORECASE)
+    if m:
+        result["language"] = m.group(1).strip()
+
+    # Calibre series
+    m = re.search(r'<meta\b[^>]+\bname=["\']calibre:series["\'][^>]+\bcontent=["\']([^"\']+)["\']', opf_content, re.IGNORECASE)
+    if not m:
+        m = re.search(r'<meta\b[^>]+\bcontent=["\']([^"\']+)["\'][^>]+\bname=["\']calibre:series["\']', opf_content, re.IGNORECASE)
+    if m:
+        result["series"] = m.group(1).strip()
+
+    # EPUB3 belongs-to-collection fallback
+    if not result["series"]:
+        m = re.search(r'<meta\b[^>]+\bproperty=["\']belongs-to-collection["\'][^>]*>([^<]+)</meta>', opf_content, re.IGNORECASE)
+        if m:
+            result["series"] = m.group(1).strip()
+
+    # Calibre series index
+    m = re.search(r'<meta\b[^>]+\bname=["\']calibre:series_index["\'][^>]+\bcontent=["\']([^"\']+)["\']', opf_content, re.IGNORECASE)
+    if not m:
+        m = re.search(r'<meta\b[^>]+\bcontent=["\']([^"\']+)["\'][^>]+\bname=["\']calibre:series_index["\']', opf_content, re.IGNORECASE)
+    if m:
+        try:
+            result["series_index"] = float(m.group(1).strip())
+        except ValueError:
+            pass
+
+    return result
+
+
+async def _fetch_epub_meta_and_cover(
+    conn,
+    epub_path: str,
+    covers_dir: Path,
+    device_id: int,
+    existing_cover: Optional[str],
+) -> tuple[dict, Optional[str]]:
+    """Extract metadata and cover from EPUB via SSH in a single OPF read pass."""
+    empty: dict = {
+        "title": "", "authors": "", "series": "", "series_index": None,
+        "language": "", "pages": 0, "description": "",
+    }
+
+    r = await conn.run(f'unzip -p "{epub_path}" META-INF/container.xml 2>/dev/null', check=False)
+    if not r.stdout:
+        return empty, existing_cover
+    opf_path = _parse_container_xml(r.stdout)
+    if not opf_path:
+        return empty, existing_cover
+
+    r = await conn.run(f'unzip -p "{epub_path}" "{opf_path}" 2>/dev/null', check=False)
+    if not r.stdout:
+        return empty, existing_cover
+    opf_content = r.stdout
+
+    meta = _parse_opf_metadata(opf_content)
+
+    cover_file = existing_cover
+    if cover_file is None:
+        cover_zip_path = _parse_opf_cover(opf_content, opf_path)
+        if cover_zip_path:
+            r = await conn.run(f'unzip -p "{epub_path}" "{cover_zip_path}" 2>/dev/null | base64', check=False)
+            if r.stdout and r.stdout.strip():
+                try:
+                    image_bytes = base64.b64decode(r.stdout.strip())
+                    if image_bytes:
+                        ext = cover_zip_path.rsplit(".", 1)[-1].lower() if "." in cover_zip_path else "jpg"
+                        if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+                            ext = "jpg"
+                        cover_name = hashlib.md5(f"{device_id}:{epub_path}".encode()).hexdigest() + f".{ext}"
+                        cover_subdir = covers_dir / str(device_id)
+                        cover_subdir.mkdir(parents=True, exist_ok=True)
+                        (cover_subdir / cover_name).write_bytes(image_bytes)
+                        cover_file = f"{device_id}/{cover_name}"
+                        logger.info("KoLibrary: saved epub cover %s (%d bytes)", cover_name, len(image_bytes))
+                except Exception as e:
+                    logger.warning("KoLibrary: cover decode failed for %s: %s", epub_path, e)
+
+    return meta, cover_file
+
+
 async def _fetch_cover(conn, book_path: str, covers_dir: Path, device_id: int) -> Optional[str]:
     """Fetch cover image from an EPUB via SSH. Returns relative path or None."""
     # book_path has no extension (sdr dirs on this device omit it); try .epub
@@ -373,6 +473,66 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                         updated += 1
                 except Exception as e:
                     logger.warning("KoLibrary: failed to process %s: %s", lua_file, e)
+
+            # ------------------------------------------------------------------
+            # Phase 2: scan for EPUB files that have no .sdr directory
+            # ------------------------------------------------------------------
+            _status("Scanning for untracked EPUBs…", added=added, updated=updated)
+            epub_result = await conn.run(
+                f'timeout 60 find {device.books_path} -name "*.epub" -type f 2>/dev/null',
+                check=False,
+            )
+            epub_paths = [l.strip() for l in epub_result.stdout.splitlines() if l.strip()]
+            sdr_book_paths = {sdr_dir[:-4] for sdr_dir in sdr_dirs}
+            untracked_epubs = [p for p in epub_paths if p not in sdr_book_paths]
+            logger.info(
+                "KoLibrary: device %d — %d EPUBs total, %d untracked",
+                device_id, len(epub_paths), len(untracked_epubs),
+            )
+
+            epub_total = len(untracked_epubs)
+            for idx, epub_path in enumerate(untracked_epubs, 1):
+                book_basename = os.path.basename(epub_path)
+                if book_basename.lower().endswith(".epub"):
+                    book_basename = book_basename[:-5]
+
+                _status(f"[epub {idx}/{epub_total}] {book_basename}", added=added, updated=updated)
+
+                stat_result = await conn.run(f'stat -c %Y "{epub_path}" 2>/dev/null', check=False)
+                try:
+                    mtime = int(stat_result.stdout.strip())
+                except (ValueError, TypeError):
+                    continue
+
+                existing = storage.get_book_by_path(db_path, device_id, epub_path)
+                if existing and existing.file_mtime == mtime and existing.cover_file:
+                    continue
+
+                try:
+                    existing_cover = existing.cover_file if existing else None
+                    meta, cover_file = await _fetch_epub_meta_and_cover(
+                        conn, epub_path, covers_dir, device_id, existing_cover
+                    )
+                    op = storage.upsert_book(
+                        db_path, device_id, epub_path, mtime,
+                        title=meta["title"] or book_basename,
+                        authors=meta["authors"],
+                        series=meta["series"],
+                        series_index=meta["series_index"],
+                        language=meta["language"],
+                        pages=meta["pages"],
+                        description=meta["description"],
+                        cover_file=cover_file,
+                        progress_pct=0.0,
+                        md5=None,
+                        status="",
+                    )
+                    if op == "added":
+                        added += 1
+                    else:
+                        updated += 1
+                except Exception as e:
+                    logger.warning("KoLibrary: failed to process epub %s: %s", epub_path, e)
 
             storage.update_device_last_sync(db_path, device_id)
             msg = f"Done: {added} added, {updated} updated"
