@@ -204,8 +204,9 @@ async def library(
 ):
     settings = get_settings()
     books = storage.list_books(settings.kocharacters_db_path)
+    root = request.scope.get("root_path", "").rstrip("/")
     return templates.TemplateResponse(
-        "library.html", {"request": request, "books": books}
+        "library.html", {"request": request, "root": root, "books": books}
     )
 
 
