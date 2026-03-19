@@ -78,6 +78,7 @@ async def init_db(db_path: Path) -> None:
             device_id      INTEGER NOT NULL REFERENCES kolibrary_devices(id) ON DELETE CASCADE,
             file_path      TEXT NOT NULL,
             file_mtime     INTEGER NOT NULL DEFAULT 0,
+            md5            TEXT DEFAULT NULL,
             title          TEXT NOT NULL DEFAULT '',
             authors        TEXT NOT NULL DEFAULT '',
             series         TEXT NOT NULL DEFAULT '',
@@ -92,6 +93,12 @@ async def init_db(db_path: Path) -> None:
         );
     """)
     conn.commit()
+    # Migration: add md5 column to existing databases
+    try:
+        conn.execute("ALTER TABLE kolibrary_books ADD COLUMN md5 TEXT DEFAULT NULL")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.close()
 
 
@@ -246,7 +253,8 @@ def get_book_by_path(db_path: Path, device_id: int, file_path: str) -> Optional[
 def upsert_book(db_path: Path, device_id: int, file_path: str, file_mtime: int,
                 title: str, authors: str, series: str, series_index: Optional[float],
                 language: str, pages: int, description: str,
-                cover_file: Optional[str], progress_pct: float) -> str:
+                cover_file: Optional[str], progress_pct: float,
+                md5: Optional[str] = None) -> str:
     """Returns 'added' or 'updated'."""
     conn = _connect(db_path)
     existing = conn.execute(
@@ -254,25 +262,40 @@ def upsert_book(db_path: Path, device_id: int, file_path: str, file_mtime: int,
     ).fetchone()
     if existing:
         conn.execute(
-            "UPDATE kolibrary_books SET file_mtime=?, title=?, authors=?, series=?, series_index=?, "
+            "UPDATE kolibrary_books SET file_mtime=?, md5=?, title=?, authors=?, series=?, series_index=?, "
             "language=?, pages=?, description=?, cover_file=?, progress_pct=?, last_synced_at=datetime('now') "
             "WHERE device_id=? AND file_path=?",
-            (file_mtime, title, authors, series, series_index, language, pages, description,
+            (file_mtime, md5, title, authors, series, series_index, language, pages, description,
              cover_file, progress_pct, device_id, file_path),
         )
         result = "updated"
     else:
         conn.execute(
-            "INSERT INTO kolibrary_books (device_id, file_path, file_mtime, title, authors, series, "
+            "INSERT INTO kolibrary_books (device_id, file_path, file_mtime, md5, title, authors, series, "
             "series_index, language, pages, description, cover_file, progress_pct) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (device_id, file_path, file_mtime, title, authors, series, series_index,
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (device_id, file_path, file_mtime, md5, title, authors, series, series_index,
              language, pages, description, cover_file, progress_pct),
         )
         result = "added"
     conn.commit()
     conn.close()
     return result
+
+
+def load_kosync_progress(kosync_db_path: Path) -> dict[str, float]:
+    """Return {md5: percentage} from kosync_progress for all users."""
+    if not kosync_db_path.is_file():
+        return {}
+    try:
+        conn = _connect(kosync_db_path)
+        rows = conn.execute(
+            "SELECT document, MAX(percentage) as pct FROM kosync_progress GROUP BY document"
+        ).fetchall()
+        conn.close()
+        return {r["document"]: r["pct"] for r in rows if r["document"]}
+    except Exception:
+        return {}
 
 
 def list_books(db_path: Path, device_id: Optional[int] = None,
@@ -307,6 +330,7 @@ def _row_to_book(r, device_display_name: str) -> KoBook:
     return KoBook(
         id=r["id"], device_id=r["device_id"], device_display_name=device_display_name,
         file_path=r["file_path"], file_mtime=r["file_mtime"],
+        md5=r["md5"] if "md5" in r.keys() else None,
         title=r["title"] or "", authors=r["authors"] or "",
         series=r["series"] or "", series_index=r["series_index"],
         language=r["language"] or "", pages=r["pages"] or 0,

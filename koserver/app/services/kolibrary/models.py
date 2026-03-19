@@ -40,6 +40,7 @@ class KoBook:
     device_display_name: str
     file_path: str
     file_mtime: int
+    md5: Optional[str]
     title: str
     authors: str
     series: str

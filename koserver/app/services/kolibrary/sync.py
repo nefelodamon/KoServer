@@ -240,6 +240,7 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                         description=meta["description"],
                         cover_file=None,
                         progress_pct=meta["percent_finished"],
+                        md5=meta.get("md5") or None,
                     )
                     if op == "added":
                         added += 1

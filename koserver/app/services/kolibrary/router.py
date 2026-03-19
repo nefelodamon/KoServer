@@ -64,6 +64,12 @@ async def library(
         search=search,
         status_filter=status,
     )
+    # Override progress with KoSync data where available (source 1 > source 2)
+    kosync_pct = storage.load_kosync_progress(settings.kosync_db_path)
+    for b in books:
+        if b.md5 and b.md5 in kosync_pct:
+            b.progress_pct = kosync_pct[b.md5]
+
     return templates.TemplateResponse("library.html", {
         "request": request,
         "devices": devices,
