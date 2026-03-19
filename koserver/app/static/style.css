@@ -1132,9 +1132,10 @@ th.sort-desc::after { content: ' ▼'; font-size: 0.65rem; opacity: 0.8; }
 
 .book-progress-label { font-size: 0.7rem; }
 
-.status-badge.unread  { color: var(--text-muted); }
-.status-badge.reading { color: var(--accent); }
-.status-badge.finished { color: var(--success); }
+.status-badge.unread    { color: var(--text-muted); }
+.status-badge.reading   { color: var(--accent); }
+.status-badge.finished  { color: var(--success); }
+.status-badge.abandoned { color: var(--text-muted); font-style: italic; }
 
 /* Device cards */
 .device-card {

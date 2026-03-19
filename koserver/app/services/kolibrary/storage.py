@@ -88,6 +88,7 @@ async def init_db(db_path: Path) -> None:
             description    TEXT NOT NULL DEFAULT '',
             cover_file     TEXT DEFAULT NULL,
             progress_pct   REAL NOT NULL DEFAULT 0.0,
+            status         TEXT NOT NULL DEFAULT '',
             last_synced_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(device_id, file_path)
         );
@@ -99,6 +100,11 @@ async def init_db(db_path: Path) -> None:
         conn.commit()
     except sqlite3.OperationalError:
         pass  # column already exists
+    try:
+        conn.execute("ALTER TABLE kolibrary_books ADD COLUMN status TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
     conn.close()
 
 
@@ -254,7 +260,7 @@ def upsert_book(db_path: Path, device_id: int, file_path: str, file_mtime: int,
                 title: str, authors: str, series: str, series_index: Optional[float],
                 language: str, pages: int, description: str,
                 cover_file: Optional[str], progress_pct: float,
-                md5: Optional[str] = None) -> str:
+                md5: Optional[str] = None, status: str = "") -> str:
     """Returns 'added' or 'updated'."""
     conn = _connect(db_path)
     existing = conn.execute(
@@ -263,19 +269,19 @@ def upsert_book(db_path: Path, device_id: int, file_path: str, file_mtime: int,
     if existing:
         conn.execute(
             "UPDATE kolibrary_books SET file_mtime=?, md5=?, title=?, authors=?, series=?, series_index=?, "
-            "language=?, pages=?, description=?, cover_file=?, progress_pct=?, last_synced_at=datetime('now') "
+            "language=?, pages=?, description=?, cover_file=?, progress_pct=?, status=?, last_synced_at=datetime('now') "
             "WHERE device_id=? AND file_path=?",
             (file_mtime, md5, title, authors, series, series_index, language, pages, description,
-             cover_file, progress_pct, device_id, file_path),
+             cover_file, progress_pct, status, device_id, file_path),
         )
         result = "updated"
     else:
         conn.execute(
             "INSERT INTO kolibrary_books (device_id, file_path, file_mtime, md5, title, authors, series, "
-            "series_index, language, pages, description, cover_file, progress_pct) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "series_index, language, pages, description, cover_file, progress_pct, status) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (device_id, file_path, file_mtime, md5, title, authors, series, series_index,
-             language, pages, description, cover_file, progress_pct),
+             language, pages, description, cover_file, progress_pct, status),
         )
         result = "added"
     conn.commit()
@@ -314,12 +320,11 @@ def list_books(db_path: Path, device_id: Optional[int] = None,
     if search:
         query += " AND (b.title LIKE ? OR b.authors LIKE ?)"
         args += [f"%{search}%", f"%{search}%"]
-    if status_filter == "reading":
-        query += " AND b.progress_pct < 0.95 AND b.progress_pct > 0"
-    elif status_filter == "finished":
-        query += " AND b.progress_pct >= 0.95"
+    if status_filter in ("reading", "complete", "abandoned", "tbr"):
+        query += " AND b.status = ?"
+        args.append(status_filter)
     elif status_filter == "unread":
-        query += " AND b.progress_pct = 0"
+        query += " AND b.status = '' AND b.progress_pct = 0"
     query += " ORDER BY b.title COLLATE NOCASE"
     rows = conn.execute(query, args).fetchall()
     conn.close()
@@ -337,5 +342,6 @@ def _row_to_book(r, device_display_name: str) -> KoBook:
         description=r["description"] or "",
         cover_file=r["cover_file"],
         progress_pct=r["progress_pct"] or 0.0,
+        status=r["status"] if "status" in r.keys() else "",
         last_synced_at=r["last_synced_at"],
     )

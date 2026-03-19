@@ -24,10 +24,12 @@
   </select>
 
   <select name="status" class="form-select" style="width:auto">
-    <option value=""        {% if status_filter == '' %}selected{% endif %}>All</option>
-    <option value="reading" {% if status_filter == 'reading' %}selected{% endif %}>Reading</option>
-    <option value="finished"{% if status_filter == 'finished' %}selected{% endif %}>Finished</option>
-    <option value="unread"  {% if status_filter == 'unread' %}selected{% endif %}>Unread</option>
+    <option value=""         {% if status_filter == '' %}selected{% endif %}>All</option>
+    <option value="reading"  {% if status_filter == 'reading' %}selected{% endif %}>Reading</option>
+    <option value="complete" {% if status_filter == 'complete' %}selected{% endif %}>Finished</option>
+    <option value="abandoned"{% if status_filter == 'abandoned' %}selected{% endif %}>Abandoned</option>
+    <option value="tbr"      {% if status_filter == 'tbr' %}selected{% endif %}>To Read</option>
+    <option value="unread"   {% if status_filter == 'unread' %}selected{% endif %}>Unread</option>
   </select>
 
   <button type="submit" class="btn-restore">Filter</button>
@@ -70,13 +72,16 @@
       <div class="book-author">{{ b.authors }}</div>
       {% endif %}
       <div class="book-progress-label">
-        {% set pct = (b.progress_pct * 100) | int %}
-        {% if pct >= 95 %}
+        {% if b.status == 'complete' %}
           <span class="status-badge finished">Finished</span>
-        {% elif pct > 0 %}
-          <span class="status-badge reading">{{ pct }}%</span>
+        {% elif b.status == 'reading' %}
+          <span class="status-badge reading">Reading</span>
+        {% elif b.status == 'abandoned' %}
+          <span class="status-badge abandoned">Abandoned</span>
+        {% elif b.status == 'tbr' %}
+          <span class="status-badge unread">To Read</span>
         {% else %}
-          <span class="status-badge unread">Unread</span>
+          <span class="status-badge unread">—</span>
         {% endif %}
       </div>
     </div>

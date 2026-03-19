@@ -50,4 +50,5 @@ class KoBook:
     description: str
     cover_file: Optional[str]  # relative path under covers_dir
     progress_pct: float  # 0.0 – 1.0
+    status: str  # reading, complete, abandoned, tbr, or "" (unknown)
     last_synced_at: str

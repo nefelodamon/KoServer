@@ -84,7 +84,7 @@ def parse_lua_settings(content: str) -> dict:
     result: dict = {
         "title": "", "authors": "", "series": "", "series_index": None,
         "language": "", "pages": 0, "description": "", "percent_finished": 0.0,
-        "md5": "",
+        "md5": "", "status": "",
     }
     doc_props_text = _extract_nested_table(content, "doc_props")
     if doc_props_text:
@@ -109,6 +109,11 @@ def parse_lua_settings(content: str) -> dict:
             result["percent_finished"] = min(1.0, float(m.group(1)))
         except ValueError:
             pass
+
+    summary_text = _extract_nested_table(content, "summary")
+    if summary_text:
+        sp = _parse_flat_table(summary_text)
+        result["status"] = sp.get("status", "") or ""
 
     m = re.search(r'\["partial_md5_checksum"\]\s*=\s*"([^"]+)"', content)
     if m:
@@ -241,6 +246,7 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                         cover_file=None,
                         progress_pct=meta["percent_finished"],
                         md5=meta.get("md5") or None,
+                        status=meta.get("status", ""),
                     )
                     if op == "added":
                         added += 1
