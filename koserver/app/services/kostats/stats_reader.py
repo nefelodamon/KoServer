@@ -177,7 +177,17 @@ def compute_stats(db_path: Path) -> UserStats:
     all_books.sort(key=lambda b: b.last_read, reverse=True)
     books_read = len(all_books)
 
-    # Sync days_read from all_books (full merge) into top_books
+    # Fallback: estimate days_read from date range for books without session timestamps
+    for b in all_books:
+        if b.days_read == 0 and b.started and b.last_read \
+                and b.started > "1971-01-01" and b.last_read > "1971-01-01":
+            try:
+                b.days_read = max(1, (date.fromisoformat(b.last_read)
+                                      - date.fromisoformat(b.started)).days + 1)
+            except Exception:
+                pass
+
+    # Sync days_read from all_books (full merge, with fallback applied) into top_books
     _all_days = {(b.title.lower().strip(), b.authors.lower().strip()): b.days_read for b in all_books}
     for b in top_books:
         key = (b.title.lower().strip(), b.authors.lower().strip())
