@@ -130,7 +130,7 @@
     </thead>
     <tbody>
     {% for b in stats.top_books %}
-      <tr>
+      <tr class="book-row" data-title="{{ b.title }}" data-authors="{{ b.authors }}" data-status="{{ b.status }}" data-started="{{ b.started }}" data-lastread="{{ b.last_read }}" data-hours="{{ b.hours }}" data-pph="{{ b.pages_per_hour }}">
         <td>
           <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
           {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
@@ -166,7 +166,7 @@
     </thead>
     <tbody>
     {% for b in stats.all_books %}
-      <tr>
+      <tr class="book-row" data-title="{{ b.title }}" data-authors="{{ b.authors }}" data-status="{{ b.status }}" data-started="{{ b.started }}" data-lastread="{{ b.last_read }}" data-hours="{{ b.hours }}" data-pph="{{ b.pages_per_hour }}">
         <td>
           <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
           {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
@@ -185,6 +185,35 @@
   {% endif %}
 </div>
 
+{# ── Book detail modal ── #}
+<div id="book-modal-overlay" class="book-modal-overlay hidden">
+  <div class="book-modal">
+    <div class="book-modal-header">
+      <div>
+        <div id="bm-title" class="book-modal-title"></div>
+        <div id="bm-authors" class="book-modal-authors"></div>
+      </div>
+      <button class="book-modal-close" id="book-modal-close">✕</button>
+    </div>
+    <div class="book-modal-meta">
+      <span id="bm-status"></span>
+      <span class="bm-meta-item"><span class="bm-meta-label">Started</span><span id="bm-started"></span></span>
+      <span class="bm-meta-item"><span class="bm-meta-label">Last read</span><span id="bm-lastread"></span></span>
+      <span class="bm-meta-item"><span class="bm-meta-label">Total</span><span id="bm-hours"></span></span>
+      <span class="bm-meta-item"><span class="bm-meta-label">pg/h</span><span id="bm-pph"></span></span>
+    </div>
+    <div class="book-modal-cal">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="cal-prev">‹</button>
+        <span id="cal-month-label" class="cal-month-label"></span>
+        <button class="cal-nav-btn" id="cal-next">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div id="cal-day-detail" class="cal-day-detail hidden"></div>
+    </div>
+  </div>
+</div>
+
 {# ── DB info ── #}
 <div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border); font-size:0.75rem; color:var(--text-muted)">
   <span>📁 {{ db_info.path }}</span>
@@ -195,10 +224,10 @@
 
 {% block scripts %}
 <script>
+// ── Sortable tables ──────────────────────────────────────────────────────
 document.querySelectorAll('.sortable-table').forEach(table => {
   const headers = table.querySelectorAll('th.sortable');
   let sortCol = -1, sortAsc = true;
-
   headers.forEach(th => {
     th.style.cursor = 'pointer';
     th.title = 'Click to sort';
@@ -207,23 +236,195 @@ document.querySelectorAll('.sortable-table').forEach(table => {
       if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
       headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
       th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
-
       const tbody = table.querySelector('tbody');
       const rows = Array.from(tbody.querySelectorAll('tr'));
       rows.sort((a, b) => {
-        const aCell = a.cells[col];
-        const bCell = b.cells[col];
+        const aCell = a.cells[col], bCell = b.cells[col];
         const aVal = aCell.dataset.val ?? aCell.textContent.trim();
         const bVal = bCell.dataset.val ?? bCell.textContent.trim();
         const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
-        const cmp = (!isNaN(aNum) && !isNaN(bNum))
-          ? aNum - bNum
-          : aVal.localeCompare(bVal);
+        const cmp = (!isNaN(aNum) && !isNaN(bNum)) ? aNum - bNum : aVal.localeCompare(bVal);
         return sortAsc ? cmp : -cmp;
       });
       rows.forEach(r => tbody.appendChild(r));
     });
   });
+});
+
+// ── Book detail modal ────────────────────────────────────────────────────
+const ROOT = '{{ root }}';
+const UNAME = '{{ username }}';
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const overlay  = document.getElementById('book-modal-overlay');
+const closeBtn = document.getElementById('book-modal-close');
+let calYear, calMonth, calData = {}, activeTitle = '';
+
+function minsHm(m) {
+  const t = Math.max(0, Math.round(m));
+  const h = Math.floor(t / 60), mins = t % 60;
+  if (h && mins) return h + 'h ' + mins + 'm';
+  if (h) return h + 'h';
+  return mins + 'm';
+}
+
+function openModal(row) {
+  const title   = row.dataset.title;
+  const authors = row.dataset.authors;
+  const status  = row.dataset.status;
+  const started = row.dataset.started;
+  const lastread= row.dataset.lastread;
+  const hours   = row.dataset.hours;
+  const pph     = row.dataset.pph;
+
+  document.getElementById('bm-title').textContent    = title;
+  document.getElementById('bm-authors').textContent  = authors;
+  document.getElementById('bm-started').textContent  = started || '—';
+  document.getElementById('bm-lastread').textContent = lastread || '—';
+  document.getElementById('bm-hours').textContent    = hours + 'h';
+  document.getElementById('bm-pph').textContent      = pph;
+
+  const statusEl = document.getElementById('bm-status');
+  statusEl.className = 'meta-badge status-' + status.toLowerCase();
+  statusEl.textContent = status;
+
+  activeTitle = title;
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // Start at the last-read month, or today
+  const base = lastread ? new Date(lastread) : new Date();
+  calYear  = base.getFullYear();
+  calMonth = base.getMonth() + 1;
+  document.getElementById('cal-day-detail').classList.add('hidden');
+  loadCalendar();
+}
+
+function closeModal() {
+  overlay.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function loadCalendar() {
+  document.getElementById('cal-month-label').textContent =
+    MONTHS[calMonth - 1] + ' ' + calYear;
+  document.getElementById('cal-grid').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);font-size:0.8rem;padding:1rem">Loading…</div>';
+  document.getElementById('cal-day-detail').classList.add('hidden');
+
+  const url = ROOT + '/services/kostats/stats/' + encodeURIComponent(UNAME) +
+    '/book-data?title=' + encodeURIComponent(activeTitle) +
+    '&year=' + calYear + '&month=' + calMonth;
+  try {
+    const resp = await fetch(url, { credentials: 'same-origin' });
+    calData = await resp.json();
+  } catch(e) {
+    calData = { days: {}, hours: {} };
+  }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  // Day-of-week headers
+  DOW.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+  const firstDow    = new Date(calYear, calMonth - 1, 1).getDay(); // 0=Sun
+
+  const dayMins = calData.days || {};
+  const vals = Object.values(dayMins).map(Number).filter(v => v > 0);
+  const maxMins = vals.length ? Math.max(...vals) : 1;
+
+  // Empty cells before first day
+  for (let i = 0; i < firstDow; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const el = document.createElement('div');
+    const mins = Number(dayMins[d] || 0);
+    el.className = 'cal-day';
+    el.textContent = d;
+
+    if (mins > 0) {
+      const ratio = mins / maxMins;
+      if (ratio <= 0.25)      el.classList.add('cal-heat-1');
+      else if (ratio <= 0.50) el.classList.add('cal-heat-2');
+      else if (ratio <= 0.75) el.classList.add('cal-heat-3');
+      else                    el.classList.add('cal-heat-4');
+      el.classList.add('has-data');
+      el.title = minsHm(mins);
+      el.addEventListener('click', () => showDayDetail(d, el));
+    }
+    grid.appendChild(el);
+  }
+}
+
+function showDayDetail(day, dayEl) {
+  // Deselect any previously selected day
+  document.querySelectorAll('.cal-day.selected').forEach(e => e.classList.remove('selected'));
+  dayEl.classList.add('selected');
+
+  const detail = document.getElementById('cal-day-detail');
+  const hourMap = (calData.hours || {})[day] || {};
+
+  // Find hours with data and max
+  const entries = Object.entries(hourMap).map(([h, m]) => [parseInt(h), parseFloat(m)])
+    .filter(([,m]) => m > 0).sort((a, b) => a[0] - b[0]);
+
+  if (!entries.length) {
+    detail.classList.add('hidden');
+    return;
+  }
+
+  const maxMins = Math.max(...entries.map(([,m]) => m));
+  const dateStr = calYear + '-' + String(calMonth).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+
+  let html = '<div class="cal-day-detail-title">' + dateStr + '</div>';
+  entries.forEach(([h, m]) => {
+    const pct = Math.round(m / maxMins * 100);
+    const hLabel = String(h).padStart(2,'0') + ':00';
+    html += `<div class="hour-row">
+      <span class="hour-label">${hLabel}</span>
+      <div class="hour-bar-bg"><div class="hour-bar-fill" style="width:${pct}%"></div></div>
+      <span class="hour-mins">${minsHm(m)}</span>
+    </div>`;
+  });
+
+  detail.innerHTML = html;
+  detail.classList.remove('hidden');
+}
+
+// Wire up rows
+document.querySelectorAll('.book-row').forEach(row => {
+  row.addEventListener('click', () => openModal(row));
+});
+
+closeBtn.addEventListener('click', closeModal);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+document.getElementById('cal-prev').addEventListener('click', () => {
+  calMonth--;
+  if (calMonth < 1) { calMonth = 12; calYear--; }
+  loadCalendar();
+});
+
+document.getElementById('cal-next').addEventListener('click', () => {
+  calMonth++;
+  if (calMonth > 12) { calMonth = 1; calYear++; }
+  loadCalendar();
 });
 </script>
 {% endblock %}

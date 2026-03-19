@@ -794,6 +794,214 @@ th.sort-desc::after { content: ' ▼'; font-size: 0.65rem; opacity: 0.8; }
   text-align: center;
 }
 
+/* ── Book modal overlay ───────────────────────────────────────────────── */
+.book-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.book-modal-overlay.hidden { display: none; }
+
+.book-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.book-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.book-modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.book-modal-authors {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.book-modal-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 1rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.book-modal-close:hover { background: var(--surface2); color: var(--text); }
+
+.book-modal-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.bm-meta-item { color: var(--text-muted); }
+.bm-meta-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.3rem; }
+
+/* Calendar */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.cal-month-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.cal-nav-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cal-nav-btn:hover { background: var(--surface2); color: var(--text); }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cal-dow {
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-bottom: 4px;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: default;
+  transition: filter 0.1s;
+  position: relative;
+}
+
+.cal-day.has-data {
+  cursor: pointer;
+  color: #000;
+}
+
+.cal-day.has-data:hover { filter: brightness(1.2); }
+
+.cal-day.selected { outline: 2px solid var(--text); outline-offset: 1px; }
+
+.cal-day.empty { background: transparent; }
+
+.cal-heat-1 { background: rgba(124,156,255,0.25); color: var(--text-muted); }
+.cal-heat-2 { background: rgba(124,156,255,0.50); color: var(--text); }
+.cal-heat-3 { background: rgba(124,156,255,0.75); color: #000; }
+.cal-heat-4 { background: rgba(124,156,255,1.00); color: #000; }
+
+.cal-day-detail {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+
+.cal-day-detail.hidden { display: none; }
+
+.cal-day-detail-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.hour-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.hour-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  width: 2.5rem;
+  flex-shrink: 0;
+}
+
+.hour-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hour-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.hour-mins {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  width: 3rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.book-row { cursor: pointer; }
+.book-row:hover { background: var(--surface2); }
+
 /* ── Responsive ───────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .panel-row { grid-template-columns: 1fr; }
