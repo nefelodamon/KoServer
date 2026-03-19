@@ -105,6 +105,11 @@ async def init_db(db_path: Path) -> None:
         conn.commit()
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute("ALTER TABLE kolibrary_devices ADD COLUMN sync_defer TEXT NOT NULL DEFAULT 'none'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
     conn.close()
 
 
@@ -127,12 +132,13 @@ def get_device(db_path: Path, device_id: int) -> Optional[KoLibraryDevice]:
 
 
 def create_device(db_path: Path, name: str, friendly_name: str, host: str, port: int,
-                  username: str, encrypted_password: str, books_path: str, sync_interval: str) -> int:
+                  username: str, encrypted_password: str, books_path: str,
+                  sync_interval: str, sync_defer: str = "none") -> int:
     conn = _connect(db_path)
     cur = conn.execute(
-        "INSERT INTO kolibrary_devices (name, friendly_name, host, port, username, encrypted_password, books_path, sync_interval) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (name, friendly_name, host, port, username, encrypted_password, books_path, sync_interval),
+        "INSERT INTO kolibrary_devices (name, friendly_name, host, port, username, encrypted_password, books_path, sync_interval, sync_defer) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, friendly_name, host, port, username, encrypted_password, books_path, sync_interval, sync_defer),
     )
     conn.commit()
     device_id = cur.lastrowid
@@ -142,19 +148,20 @@ def create_device(db_path: Path, name: str, friendly_name: str, host: str, port:
 
 def update_device(db_path: Path, device_id: int, name: str, friendly_name: str, host: str,
                   port: int, username: str, books_path: str, sync_interval: str,
+                  sync_defer: str = "none",
                   encrypted_password: Optional[str] = None) -> None:
     conn = _connect(db_path)
     if encrypted_password is not None:
         conn.execute(
             "UPDATE kolibrary_devices SET name=?, friendly_name=?, host=?, port=?, username=?, "
-            "books_path=?, sync_interval=?, encrypted_password=? WHERE id=?",
-            (name, friendly_name, host, port, username, books_path, sync_interval, encrypted_password, device_id),
+            "books_path=?, sync_interval=?, sync_defer=?, encrypted_password=? WHERE id=?",
+            (name, friendly_name, host, port, username, books_path, sync_interval, sync_defer, encrypted_password, device_id),
         )
     else:
         conn.execute(
             "UPDATE kolibrary_devices SET name=?, friendly_name=?, host=?, port=?, username=?, "
-            "books_path=?, sync_interval=? WHERE id=?",
-            (name, friendly_name, host, port, username, books_path, sync_interval, device_id),
+            "books_path=?, sync_interval=?, sync_defer=? WHERE id=?",
+            (name, friendly_name, host, port, username, books_path, sync_interval, sync_defer, device_id),
         )
     conn.commit()
     conn.close()
@@ -180,6 +187,7 @@ def _row_to_device(r) -> KoLibraryDevice:
         host=r["host"], port=r["port"], username=r["username"],
         encrypted_password=r["encrypted_password"] or "",
         books_path=r["books_path"], sync_interval=r["sync_interval"],
+        sync_defer=r["sync_defer"] if "sync_defer" in r.keys() else "none",
         last_sync=r["last_sync"], created_at=r["created_at"],
     )
 

@@ -50,6 +50,14 @@
         {% endfor %}
       </select>
     </label>
+    <label class="form-field">
+      Defer after success
+      <select name="sync_defer" style="{{ f_style }}">
+        {% for val, label in sync_defer_options %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <div style="align-self:flex-end">
       <button type="submit" class="btn-restore">Add Device</button>
     </div>
@@ -157,6 +165,13 @@
           <select name="sync_interval" style="{{ f_style }}">
             {% for val, label in sync_intervals %}
             <option value="{{ val }}" {% if val == device.sync_interval %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="form-field">Defer after success
+          <select name="sync_defer" style="{{ f_style }}">
+            {% for val, label in sync_defer_options %}
+            <option value="{{ val }}" {% if val == device.sync_defer %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </label>

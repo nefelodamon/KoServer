@@ -12,7 +12,8 @@ class KoLibraryDevice:
     username: str
     encrypted_password: str
     books_path: str
-    sync_interval: str  # manual, hourly, 6h, daily, weekly
+    sync_interval: str  # manual, 5m, 10m, 30m, hourly, 6h, daily, weekly
+    sync_defer: str     # none, 30m, 1h, 2h, 6h, 12h, daily
     last_sync: Optional[str]
     created_at: str
 

@@ -68,10 +68,23 @@ def _deduplicate_by_md5(books):
 
 SYNC_INTERVALS = [
     ("manual", "Manual only"),
+    ("5m",     "Every 5 minutes"),
+    ("10m",    "Every 10 minutes"),
+    ("30m",    "Every 30 minutes"),
     ("hourly", "Every hour"),
     ("6h",     "Every 6 hours"),
     ("daily",  "Daily"),
     ("weekly", "Weekly"),
+]
+
+SYNC_DEFER_OPTIONS = [
+    ("none",  "No defer"),
+    ("30m",   "30 minutes"),
+    ("1h",    "1 hour"),
+    ("2h",    "2 hours"),
+    ("6h",    "6 hours"),
+    ("12h",   "12 hours"),
+    ("daily", "1 day"),
 ]
 
 
@@ -245,6 +258,7 @@ async def settings_page(
         "devices": devices,
         "logs": logs,
         "sync_intervals": SYNC_INTERVALS,
+        "sync_defer_options": SYNC_DEFER_OPTIONS,
         "edit_device": edit_device,
         "sync_status": {d.id: sync.get_sync_status(d.id) for d in devices},
     })
@@ -265,11 +279,12 @@ async def create_device(
     password = str(form.get("password", "")).strip()
     books_path = str(form.get("books_path", "/mnt/us/documents")).strip()
     sync_interval = str(form.get("sync_interval", "daily")).strip()
+    sync_defer = str(form.get("sync_defer", "none")).strip()
     root = request.scope.get("root_path", "").rstrip("/")
     if name and host and username and password:
         enc = storage.encrypt_password(settings.kolibrary_key_path, password)
         storage.create_device(settings.kolibrary_db_path, name, friendly_name, host, port,
-                              username, enc, books_path, sync_interval)
+                              username, enc, books_path, sync_interval, sync_defer)
     return RedirectResponse(url=f"{root}/services/kolibrary/settings", status_code=303)
 
 
@@ -289,10 +304,11 @@ async def update_device(
     password = str(form.get("password", "")).strip()
     books_path = str(form.get("books_path", "/mnt/us/documents")).strip()
     sync_interval = str(form.get("sync_interval", "daily")).strip()
+    sync_defer = str(form.get("sync_defer", "none")).strip()
     root = request.scope.get("root_path", "").rstrip("/")
     enc = storage.encrypt_password(settings.kolibrary_key_path, password) if password else None
     storage.update_device(settings.kolibrary_db_path, device_id, name, friendly_name, host,
-                          port, username, books_path, sync_interval, enc)
+                          port, username, books_path, sync_interval, sync_defer, enc)
     return RedirectResponse(url=f"{root}/services/kolibrary/settings", status_code=303)
 
 
