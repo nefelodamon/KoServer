@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import logging
 import os
@@ -194,9 +195,12 @@ async def _fetch_cover(conn, book_path: str, covers_dir: Path, device_id: int) -
         if not cover_zip_path:
             return None
 
-        # Step 3: extract cover image bytes
-        r = await conn.run(f'unzip -p "{book_path}" "{cover_zip_path}" 2>/dev/null', check=False, encoding=None)
-        if not r.stdout:
+        # Step 3: extract cover image as base64 to avoid binary corruption over SSH
+        r = await conn.run(f'unzip -p "{book_path}" "{cover_zip_path}" 2>/dev/null | base64', check=False)
+        if not r.stdout or not r.stdout.strip():
+            return None
+        image_bytes = base64.b64decode(r.stdout.strip())
+        if not image_bytes:
             return None
 
         ext = cover_zip_path.rsplit(".", 1)[-1].lower() if "." in cover_zip_path else "jpg"
@@ -206,7 +210,8 @@ async def _fetch_cover(conn, book_path: str, covers_dir: Path, device_id: int) -
         cover_name = hashlib.md5(f"{device_id}:{book_path}".encode()).hexdigest() + f".{ext}"
         cover_subdir = covers_dir / str(device_id)
         cover_subdir.mkdir(parents=True, exist_ok=True)
-        (cover_subdir / cover_name).write_bytes(r.stdout)
+        (cover_subdir / cover_name).write_bytes(image_bytes)
+        logger.info("KoLibrary: saved cover %s", cover_name)
         return f"{device_id}/{cover_name}"
 
     except Exception as e:
