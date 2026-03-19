@@ -238,13 +238,41 @@ async def book_detail(
                 )
                 break
     characters = storage.get_characters(settings.kocharacters_db_path, book_id)
+    # Sort: protagonists first, then characters with portraits, then alphabetical
+    characters.sort(key=lambda c: (
+        0 if c.role == "protagonist" else 1,
+        0 if c.portrait_file else 1,
+        c.name.lower(),
+    ))
     kosync_progress = (
         kosync_storage.get_progress_by_document(settings.kosync_db_path, book.partial_md5)
         if book.partial_md5 else []
     )
+    root = request.scope.get("root_path", "").rstrip("/")
     return templates.TemplateResponse(
         "book.html",
-        {"request": request, "book": book, "characters": characters, "kosync_progress": kosync_progress},
+        {"request": request, "root": root, "book": book, "characters": characters, "kosync_progress": kosync_progress},
+    )
+
+
+@router.get("/books/{book_id}/characters/{character_id}", response_class=HTMLResponse)
+async def character_detail(
+    book_id: str,
+    character_id: str,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    book = storage.get_book(settings.kocharacters_db_path, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    char = storage.get_character(settings.kocharacters_db_path, book_id, character_id)
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+    root = request.scope.get("root_path", "").rstrip("/")
+    return templates.TemplateResponse(
+        "character.html",
+        {"request": request, "root": root, "book": book, "char": char},
     )
 
 

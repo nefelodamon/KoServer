@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ char.name }} — {{ book.title }} — KoCharacters{% endblock %}
+{% block nav_kocharacters %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="{{ root }}/services/kocharacters/books/{{ book.book_id }}" class="back-link">← {{ book.title }}</a>
+  <h1>{{ char.name }}</h1>
+</div>
+
+<div class="book-detail-meta">
+
+  {# Portrait #}
+  <div style="flex-shrink:0">
+    <img
+      class="character-portrait"
+      style="width:180px;height:180px;object-fit:cover;border-radius:8px;cursor:zoom-in;{% if not char.unlocked %}filter:blur(20px) brightness(0.4){% endif %}"
+      src="{{ root }}/services/kocharacters/portraits/{{ book.book_id }}/{{ char.portrait_file if char.portrait_file else '__placeholder__' }}"
+      alt="Portrait of {{ char.name }}"
+      onerror="this.src='{{ root }}/static/placeholder.svg'"
+      onclick="openLightbox(this.src)"
+    />
+  </div>
+
+  <div class="book-detail-info">
+
+    <div class="book-meta-row">
+      <span class="book-meta-label">Role</span>
+      <span class="role-badge role-{{ char.role }}">{{ char.role }}</span>
+    </div>
+
+    {% if char.occupation %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Occupation</span>
+      <span>{{ char.occupation }}</span>
+    </div>
+    {% endif %}
+
+    {% if char.aliases %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">Also known as</span>
+      <span>{{ char.aliases | join(', ') }}</span>
+    </div>
+    {% endif %}
+
+    {% if char.first_seen_page %}
+    <div class="book-meta-row">
+      <span class="book-meta-label">First seen</span>
+      <span>Page {{ char.first_seen_page }}</span>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% if char.unlocked == false %}
+<div style="background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.3);border-radius:6px;padding:0.75rem 1rem;margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+  🔒 This character is marked as a spoiler.
+</div>
+{% endif %}
+
+{% if char.physical_description %}
+<div class="detail-section" style="margin-top:1.5rem">
+  <h4>Appearance</h4>
+  <p>{{ char.physical_description }}</p>
+</div>
+{% endif %}
+
+{% if char.personality %}
+<div class="detail-section" style="margin-top:1rem">
+  <h4>Personality</h4>
+  <p>{{ char.personality }}</p>
+</div>
+{% endif %}
+
+{% if char.relationships %}
+<div class="detail-section" style="margin-top:1rem">
+  <h4>Relationships</h4>
+  <ul class="relationship-list">
+    {% for rel in char.relationships %}
+    <li>{{ rel }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if char.first_appearance_quote %}
+<div class="detail-section" style="margin-top:1rem">
+  <h4>First appearance</h4>
+  <blockquote class="appearance-quote">{{ char.first_appearance_quote }}</blockquote>
+</div>
+{% endif %}
+
+{% if char.user_notes %}
+<div class="detail-section user-notes" style="margin-top:1rem">
+  <h4>Your notes</h4>
+  <p>{{ char.user_notes }}</p>
+</div>
+{% endif %}
+
+{# Lightbox #}
+<div id="lightbox" onclick="closeLightbox()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;cursor:zoom-out">
+  <img id="lightbox-img" src="" alt=""
+       style="max-width:90vw;max-height:90vh;border-radius:6px;box-shadow:0 4px 32px rgba(0,0,0,0.6)">
+</div>
+
+<script>
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lightbox-img').src = src;
+  lb.style.display = 'flex';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+</script>
+{% endblock %}

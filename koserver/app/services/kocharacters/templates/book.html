@@ -146,7 +146,9 @@
 {% if characters %}
 <div class="character-grid">
   {% for char in characters %}
-  <div class="character-card {% if not char.unlocked %}locked{% endif %}" data-id="{{ loop.index }}">
+  <a class="character-card {% if not char.unlocked %}locked{% endif %}"
+     href="{{ root }}/services/kocharacters/books/{{ book.book_id }}/characters/{{ char.character_id }}"
+     style="text-decoration:none;color:inherit">
 
     <div class="character-portrait-wrap {% if not char.unlocked %}spoiler-blur{% endif %}">
       <img
@@ -157,78 +159,20 @@
         onerror="this.src='{{ root }}/static/placeholder.svg'"
       />
       {% if not char.unlocked %}
-      <div class="spoiler-overlay" onclick="revealSpoiler(this)">
+      <div class="spoiler-overlay">
         <span class="spoiler-label">🔒 Spoiler</span>
-        <span class="spoiler-hint">Click to reveal</span>
       </div>
       {% endif %}
     </div>
 
     <div class="character-body">
-      <div class="character-header">
-        <h3 class="character-name {% if not char.unlocked %}spoiler-text{% endif %}">{{ char.name }}</h3>
-        <span class="role-badge role-{{ char.role }}">{{ char.role }}</span>
-      </div>
-
+      <h3 class="character-name {% if not char.unlocked %}spoiler-text{% endif %}">{{ char.name }}</h3>
       {% if char.occupation %}
       <p class="character-occupation">{{ char.occupation }}</p>
       {% endif %}
-
-      {% if char.aliases %}
-      <p class="character-aliases">Also known as: {{ char.aliases | join(', ') }}</p>
-      {% endif %}
-
-      {% if char.personality %}
-      <p class="character-personality">{{ char.personality[:200] }}{% if char.personality | length > 200 %}…{% endif %}</p>
-      {% endif %}
-
-      <button class="expand-btn" onclick="toggleExpand(this)">Show more</button>
-
-      <div class="character-detail hidden">
-        {% if char.physical_description %}
-        <div class="detail-section">
-          <h4>Appearance</h4>
-          <p>{{ char.physical_description }}</p>
-        </div>
-        {% endif %}
-
-        {% if char.personality %}
-        <div class="detail-section">
-          <h4>Personality</h4>
-          <p>{{ char.personality }}</p>
-        </div>
-        {% endif %}
-
-        {% if char.relationships %}
-        <div class="detail-section">
-          <h4>Relationships</h4>
-          <ul class="relationship-list">
-            {% for rel in char.relationships %}
-            <li>{{ rel }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
-
-        {% if char.first_appearance_quote %}
-        <div class="detail-section">
-          <h4>First appearance</h4>
-          <blockquote class="appearance-quote">{{ char.first_appearance_quote }}</blockquote>
-          {% if char.first_seen_page %}
-          <span class="page-ref">Page {{ char.first_seen_page }}</span>
-          {% endif %}
-        </div>
-        {% endif %}
-
-        {% if char.user_notes %}
-        <div class="detail-section user-notes">
-          <h4>Your notes</h4>
-          <p>{{ char.user_notes }}</p>
-        </div>
-        {% endif %}
-      </div>
     </div>
-  </div>
+
+  </a>
   {% endfor %}
 </div>
 {% else %}
