@@ -101,6 +101,7 @@ async def library(
     device_id: int = Query(default=0),
     search: str = Query(default=""),
     status: str = Query(default=""),
+    has_chars: str = Query(default=""),
 ):
     settings = get_settings()
     devices = storage.list_devices(settings.kolibrary_db_path)
@@ -131,6 +132,9 @@ async def library(
     except Exception:
         pass
 
+    if has_chars:
+        books = [b for b in books if b.id in kochar_book_ids]
+
     root = request.scope.get("root_path", "").rstrip("/")
     return templates.TemplateResponse("library.html", {
         "request": request,
@@ -140,6 +144,7 @@ async def library(
         "selected_device": device_id,
         "search": search,
         "status_filter": status,
+        "has_chars_filter": bool(has_chars),
         "kochar_book_ids": kochar_book_ids,
     })
 
