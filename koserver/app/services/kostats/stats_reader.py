@@ -167,6 +167,7 @@ def compute_stats(db_path: Path) -> UserStats:
                     title=b.title, authors=b.authors,
                     hours=b.hours, pages_per_hour=b.pages_per_hour,
                     started=b.started, last_read=b.last_read, status=b.status,
+                    days_read=b.days_read,
                 )
             else:
                 m = merged[key]
