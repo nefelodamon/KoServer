@@ -159,11 +159,11 @@ def compute_stats(db_path: Path) -> UserStats:
 
     # Top books by time spent
     rows = conn.execute(
-        _BOOK_QUERY + " HAVING hrs > 0.25 AND b.pages > 50 ORDER BY hrs DESC LIMIT 20"
+        _BOOK_QUERY + " HAVING hrs > 0.25 AND b.pages > 50 ORDER BY hrs DESC LIMIT 30"
     ).fetchall()
     top_books = _merge_duplicates([_make_book_stat(r) for r in rows])
     top_books.sort(key=lambda b: b.hours, reverse=True)
-    top_books = top_books[:8]
+    top_books = top_books[:10]
 
     # All books
     rows = conn.execute(
