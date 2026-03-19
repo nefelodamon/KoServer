@@ -296,7 +296,7 @@ async def trigger_sync(
     device = storage.get_device(settings.kolibrary_db_path, device_id)
     if not device:
         raise HTTPException(status_code=404)
-    asyncio.create_task(sync.sync_device(
+    sync.create_sync_task(sync.sync_device(
         device_id,
         settings.kolibrary_db_path,
         settings.kolibrary_covers_dir,

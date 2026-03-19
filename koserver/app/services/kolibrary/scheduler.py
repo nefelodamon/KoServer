@@ -57,6 +57,6 @@ async def run_scheduler(db_path: Path, covers_dir: Path, key_path: Path) -> None
                     except ValueError:
                         pass
                 logger.info("KoLibrary: scheduled sync for device %d (%s)", device.id, device.display_name)
-                asyncio.create_task(sync.sync_device(device.id, db_path, covers_dir, key_path))
+                sync.create_sync_task(sync.sync_device(device.id, db_path, covers_dir, key_path))
         except Exception as e:
             logger.error("KoLibrary scheduler error: %s", e)

@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 # In-memory live status per device_id
 _sync_status: dict[int, dict] = {}
 _sync_locks: dict[int, asyncio.Lock] = {}
+# Strong references to running tasks so the GC doesn't collect them (Python 3.12+)
+_running_tasks: set = set()
+
+
+def create_sync_task(coro) -> asyncio.Task:
+    """Create a fire-and-forget sync task and hold a strong reference until it completes."""
+    task = asyncio.create_task(coro)
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
+    return task
 
 
 def get_sync_status(device_id: int) -> dict:
