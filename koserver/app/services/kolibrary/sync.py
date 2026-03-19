@@ -150,33 +150,37 @@ def _parse_opf_cover(content: str, opf_path: str) -> Optional[str]:
     def resolve(href: str) -> str:
         return f"{opf_dir}/{href}" if opf_dir else href
 
+    # Match <item> or <opf:item> (namespace-prefixed variants)
+    item_pat = r'<(?:\w+:)?item\b'
+
     # EPUB3: <item properties="cover-image" href="..."/>
-    m = re.search(r'<item\b[^>]+\bproperties=["\']cover-image["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
+    m = re.search(item_pat + r'[^>]+\bproperties=["\']cover-image["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
     if not m:
-        m = re.search(r'<item\b[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bproperties=["\']cover-image["\']', content, re.IGNORECASE)
+        m = re.search(item_pat + r'[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bproperties=["\']cover-image["\']', content, re.IGNORECASE)
     if m:
         return resolve(m.group(1))
 
-    # EPUB2: <meta name="cover" content="cover-id-or-path"/> + <item id="cover-id" href="..."/>
-    m = re.search(r'<meta\b[^>]+\bname=["\']cover["\'][^>]+\bcontent=["\']([^"\']+)["\']', content, re.IGNORECASE)
+    # EPUB2: <meta name="cover" content="cover-id-or-path"/>
+    m = re.search(r'<(?:\w+:)?meta\b[^>]+\bname=["\']cover["\'][^>]+\bcontent=["\']([^"\']+)["\']', content, re.IGNORECASE)
     if not m:
-        m = re.search(r'<meta\b[^>]+\bcontent=["\']([^"\']+)["\'][^>]+\bname=["\']cover["\']', content, re.IGNORECASE)
-    if not m:
-        return None
+        m = re.search(r'<(?:\w+:)?meta\b[^>]+\bcontent=["\']([^"\']+)["\'][^>]+\bname=["\']cover["\']', content, re.IGNORECASE)
+    if m:
+        cover_val = m.group(1)
+        # Try as item ID
+        eid = re.escape(cover_val)
+        m2 = re.search(item_pat + r'[^>]+\bid=["\']' + eid + r'["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
+        if not m2:
+            m2 = re.search(item_pat + r'[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bid=["\']' + eid + r'["\']', content, re.IGNORECASE)
+        if m2:
+            return resolve(m2.group(1))
+        # content is a direct image path
+        if re.search(r'\.(jpe?g|png|gif|webp)$', cover_val, re.IGNORECASE):
+            return resolve(cover_val)
 
-    cover_val = m.group(1)
-
-    # Try as item ID first
-    cover_id = re.escape(cover_val)
-    m2 = re.search(rf'<item\b[^>]+\bid=["\']' + cover_id + r'["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
-    if not m2:
-        m2 = re.search(rf'<item\b[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bid=["\']' + cover_id + r'["\']', content, re.IGNORECASE)
-    if m2:
-        return resolve(m2.group(1))
-
-    # Fall back: treat content value as a direct image path
-    if re.search(r'\.(jpe?g|png|gif|webp)$', cover_val, re.IGNORECASE):
-        return resolve(cover_val)
+    # Last resort: find any manifest item whose href contains "cover" and is an image
+    m = re.search(item_pat + r'[^>]+\bhref=["\']([^"\']*cover[^"\']*\.(?:jpe?g|png|gif|webp))["\']', content, re.IGNORECASE)
+    if m:
+        return resolve(m.group(1))
 
     return None
 
