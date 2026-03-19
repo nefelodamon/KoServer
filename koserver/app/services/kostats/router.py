@@ -15,19 +15,22 @@ from app.config import get_settings
 from app.services.kostats import storage
 from app.services.kostats.models import UploadedFile
 from app.services.kostats.stats_reader import compute_stats
+from app.tz import localtime_filter
 
 logger = logging.getLogger(__name__)
 
 _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"
 
-templates = Jinja2Templates(env=Environment(
+_env = Environment(
     loader=ChoiceLoader([
         FileSystemLoader(str(_SERVICE_TEMPLATES)),
         FileSystemLoader(str(_BASE_TEMPLATES)),
     ]),
     autoescape=True,
-))
+)
+_env.filters["localtime"] = localtime_filter
+templates = Jinja2Templates(env=_env)
 
 router = APIRouter()
 

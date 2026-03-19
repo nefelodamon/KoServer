@@ -45,14 +45,14 @@
       <td style="padding:5px">{{ book.total_pages }}</td>
       <td style="padding:5px">{{ book.percent_finished }}</td>
       <td style="padding:5px">{{ book.reading_status }}</td>
-      <td style="padding:5px">{{ book.last_read[:10] if book.last_read else '' }}</td>
+      <td style="padding:5px">{{ book.last_read | localtime }}</td>
       <td style="padding:5px">{{ book.highlights }}</td>
       <td style="padding:5px">{{ book.notes }}</td>
       <td style="padding:5px;font-family:monospace">{{ book.partial_md5 }}</td>
       <td style="padding:5px;font-family:monospace">{{ book.cover_filename }}</td>
       <td style="padding:5px">{{ book.character_count }}</td>
-      <td style="padding:5px">{{ book.uploaded_at }}</td>
-      <td style="padding:5px;color:var(--text-muted)">{{ book.deleted_at or '' }}</td>
+      <td style="padding:5px">{{ book.uploaded_at | localtime }}</td>
+      <td style="padding:5px;color:var(--text-muted)">{{ book.deleted_at | localtime }}</td>
     </tr>
   {% endfor %}
   </tbody>

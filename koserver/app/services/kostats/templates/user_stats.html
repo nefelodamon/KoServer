@@ -122,8 +122,8 @@
             {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
           </td>
           <td><span class="meta-badge">{{ b.status }}</span></td>
-          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started }}</td>
-          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read }}</td>
+          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
+          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
           <td style="white-space:nowrap">{{ b.hours }}h</td>
           <td style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
         </tr>

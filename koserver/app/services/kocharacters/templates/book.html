@@ -63,7 +63,7 @@
         {% for p in kosync_progress %}
         <div>
           <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.2rem">
-            {{ p.username }}{% if p.device %} · {{ p.device }}{% endif %} · {{ p.updated_at[:10] }}
+            {{ p.username }}{% if p.device %} · {{ p.device }}{% endif %} · {{ p.updated_at | localtime }}
           </div>
           <div class="progress-wrap">
             <div class="progress-bar-bg" style="height:8px">
@@ -90,7 +90,7 @@
     {% if book.last_read %}
     <div class="book-meta-row">
       <span class="book-meta-label">Last read</span>
-      <span class="meta-date">{{ book.last_read[:10] }}</span>
+      <span class="meta-date">{{ book.last_read | localtime }}</span>
     </div>
     {% endif %}
 

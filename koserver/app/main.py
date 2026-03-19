@@ -2,30 +2,41 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from jinja2 import Environment, FileSystemLoader
 
 from app.auth import (
     clear_auth_cookie,
     exchange_code_for_token,
+    require_ha_auth,
     set_auth_cookie,
 )
 from app.config import get_settings
 from app.services.kocharacters import router as kocharacters_router
-from app.services.kocharacters.storage import init_db as init_kocharacters_db
+from app.services.kocharacters.storage import init_db as init_kocharacters_db, get_setting, set_setting
 from app.services.kosync import router as kosync_router
 from app.services.kosync.storage import init_db as init_kosync_db
 from app.services.kostats import router as kostats_router
 from app.services.kostats.storage import init_db as init_kostats_db
+from app.tz import COMMON_TIMEZONES, get_current_tz, localtime_filter, set_current_tz
 
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
+_BASE_TEMPLATES = Path(__file__).parent / "templates"
 VERSION = os.getenv("KOSERVER_VERSION", "dev")
+TZ_KEY = "timezone"
+
+_main_env = Environment(loader=FileSystemLoader(str(_BASE_TEMPLATES)), autoescape=True)
+_main_env.filters["localtime"] = localtime_filter
+_main_templates = Jinja2Templates(env=_main_env)
 
 
 def _root(request: Request) -> str:
@@ -67,6 +78,9 @@ async def lifespan(app: FastAPI):
     await init_kocharacters_db(settings.kocharacters_db_path)
     await init_kosync_db(settings.kosync_db_path)
     await init_kostats_db(settings.kostats_db_path)
+    # Load saved timezone
+    saved_tz = get_setting(settings.kocharacters_db_path, TZ_KEY, "UTC")
+    set_current_tz(saved_tz)
     yield
 
 
@@ -130,3 +144,27 @@ async def logout(request: Request):
     response = RedirectResponse(url=f"{_root(request)}/login")
     clear_auth_cookie(response)
     return response
+
+
+@app.get("/settings")
+async def global_settings(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    return _main_templates.TemplateResponse(
+        "global_settings.html",
+        {"request": request, "timezones": COMMON_TIMEZONES, "current_tz": get_current_tz()},
+    )
+
+
+@app.post("/settings/save")
+async def global_settings_save(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    form = await request.form()
+    tz = str(form.get("timezone", "UTC"))
+    set_current_tz(tz)
+    set_setting(settings.kocharacters_db_path, TZ_KEY, get_current_tz())
+    return RedirectResponse(url=f"{_root(request)}/settings", status_code=303)

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Settings — KoServer{% endblock %}
+{% block nav_global_settings %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Settings</h1>
+</div>
+
+<div class="panel">
+  <div class="panel-title">Display timezone</div>
+  <form method="post" action="{{ root }}/settings/save">
+    <div class="form-group" style="max-width:320px">
+      <label for="timezone" style="display:block; margin-bottom:0.5rem; font-size:0.9rem; color:var(--text-muted)">Timezone</label>
+      <select name="timezone" id="timezone" class="form-select">
+        {% for tz in timezones %}
+        <option value="{{ tz }}" {% if tz == current_tz %}selected{% endif %}>{{ tz }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn-primary" style="margin-top:1rem">Save</button>
+  </form>
+</div>
+{% endblock %}

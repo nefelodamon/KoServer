@@ -39,7 +39,7 @@
         </div>
       </td>
       <td style="font-size:0.85rem; color:var(--text-muted)">{{ p.device or '—' }}</td>
-      <td style="font-size:0.82rem; color:var(--text-muted)">{{ p.updated_at[:16] if p.updated_at else '—' }}</td>
+      <td style="font-size:0.82rem; color:var(--text-muted)">{{ p.updated_at | localtime if p.updated_at else '—' }}</td>
     </tr>
   {% endfor %}
   </tbody>

@@ -600,6 +600,15 @@ a { color: inherit; text-decoration: none; }
   outline: none;
 }
 .form-group input:focus { border-color: var(--accent); }
+.form-select {
+  padding: 0.55rem 0.8rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  width: 100%;
+}
 .btn-primary {
   padding: 0.55rem 1.25rem;
   background: var(--accent);

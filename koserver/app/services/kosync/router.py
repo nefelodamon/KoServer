@@ -11,17 +11,20 @@ from app.auth import require_ha_auth
 from app.config import get_settings
 from app.services.kosync import storage
 from app.services.kosync.storage import ALLOW_REGISTRATION_KEY
+from app.tz import localtime_filter
 
 _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"
 
-templates = Jinja2Templates(env=Environment(
+_env = Environment(
     loader=ChoiceLoader([
         FileSystemLoader(str(_SERVICE_TEMPLATES)),
         FileSystemLoader(str(_BASE_TEMPLATES)),
     ]),
     autoescape=True,
-))
+)
+_env.filters["localtime"] = localtime_filter
+templates = Jinja2Templates(env=_env)
 
 router = APIRouter()
 

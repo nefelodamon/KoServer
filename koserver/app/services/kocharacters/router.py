@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.services.kocharacters import storage
 from app.services.kocharacters.storage import DEFAULT_THUMBNAIL_SIZE, THUMBNAIL_SIZE_KEY
 from app.services.kosync import storage as kosync_storage
+from app.tz import localtime_filter
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,15 @@ _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"
 
 # Search service templates first, then shared base templates
-templates = Jinja2Templates(env=Environment(
+_env = Environment(
     loader=ChoiceLoader([
         FileSystemLoader(str(_SERVICE_TEMPLATES)),
         FileSystemLoader(str(_BASE_TEMPLATES)),
     ]),
     autoescape=True,
-))
+)
+_env.filters["localtime"] = localtime_filter
+templates = Jinja2Templates(env=_env)
 
 router = APIRouter()
 

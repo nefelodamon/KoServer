@@ -104,7 +104,7 @@ document.getElementById('regen-btn').addEventListener('click', function () {
       <tr>
         <td>{{ book.title }}</td>
         <td>{{ book.character_count }}</td>
-        <td>{{ book.deleted_at[:10] if book.deleted_at else '' }}</td>
+        <td>{{ book.deleted_at | localtime }}</td>
         <td class="recycle-actions">
           <form method="post" action="{{ root }}/services/kocharacters/settings/restore/{{ book.book_id }}" style="display:inline">
             <button type="submit" class="btn-restore">Restore</button>

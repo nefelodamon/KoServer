@@ -34,7 +34,7 @@
         {% endif %}
         <div class="book-meta">
           <span class="meta-badge">{{ book.character_count }} character{{ 's' if book.character_count != 1 }}</span>
-          <span class="meta-date">{{ book.uploaded_at[:10] }}</span>
+          <span class="meta-date">{{ book.uploaded_at | localtime }}</span>
         </div>
       </div>
     </a>
