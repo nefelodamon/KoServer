@@ -157,21 +157,28 @@ def _parse_opf_cover(content: str, opf_path: str) -> Optional[str]:
     if m:
         return resolve(m.group(1))
 
-    # EPUB2: <meta name="cover" content="cover-id"/> + <item id="cover-id" href="..."/>
+    # EPUB2: <meta name="cover" content="cover-id-or-path"/> + <item id="cover-id" href="..."/>
     m = re.search(r'<meta\b[^>]+\bname=["\']cover["\'][^>]+\bcontent=["\']([^"\']+)["\']', content, re.IGNORECASE)
     if not m:
         m = re.search(r'<meta\b[^>]+\bcontent=["\']([^"\']+)["\'][^>]+\bname=["\']cover["\']', content, re.IGNORECASE)
     if not m:
         return None
 
-    cover_id = re.escape(m.group(1))
-    m = re.search(rf'<item\b[^>]+\bid=["\']' + cover_id + r'["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
-    if not m:
-        m = re.search(rf'<item\b[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bid=["\']' + cover_id + r'["\']', content, re.IGNORECASE)
-    if not m:
-        return None
+    cover_val = m.group(1)
 
-    return resolve(m.group(1))
+    # Try as item ID first
+    cover_id = re.escape(cover_val)
+    m2 = re.search(rf'<item\b[^>]+\bid=["\']' + cover_id + r'["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
+    if not m2:
+        m2 = re.search(rf'<item\b[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bid=["\']' + cover_id + r'["\']', content, re.IGNORECASE)
+    if m2:
+        return resolve(m2.group(1))
+
+    # Fall back: treat content value as a direct image path
+    if re.search(r'\.(jpe?g|png|gif|webp)$', cover_val, re.IGNORECASE):
+        return resolve(cover_val)
+
+    return None
 
 
 async def _fetch_cover(conn, book_path: str, covers_dir: Path, device_id: int) -> Optional[str]:
