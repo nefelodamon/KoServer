@@ -34,6 +34,38 @@ templates = Jinja2Templates(env=_env)
 
 router = APIRouter()
 
+
+def _deduplicate_by_md5(books):
+    """Merge books with the same MD5 into one entry (highest progress wins)."""
+    from app.services.kolibrary.models import KoBook
+    md5_groups: dict[str, list] = {}
+    no_md5 = []
+    for b in books:
+        if b.md5:
+            md5_groups.setdefault(b.md5, []).append(b)
+        else:
+            no_md5.append(b)
+
+    result = []
+    for group in md5_groups.values():
+        def _key(b):
+            return 1.0 if b.status == "complete" else b.progress_pct
+        best = max(group, key=_key)
+        if not best.cover_file:
+            for b in group:
+                if b.cover_file:
+                    best.cover_file = b.cover_file
+                    break
+        if len(group) > 1:
+            names = sorted(set(b.device_display_name for b in group))
+            best.device_display_name = ", ".join(names)
+        result.append(best)
+
+    result.extend(no_md5)
+    result.sort(key=lambda b: b.title.lower())
+    return result
+
+
 SYNC_INTERVALS = [
     ("manual", "Manual only"),
     ("hourly", "Every hour"),
@@ -64,11 +96,15 @@ async def library(
         search=search,
         status_filter=status,
     )
-    # Override progress with KoSync data where available (source 1 > source 2)
+    # Override progress with KoSync data where available
     kosync_pct = storage.load_kosync_progress(settings.kosync_db_path)
     for b in books:
         if b.md5 and b.md5 in kosync_pct:
             b.progress_pct = kosync_pct[b.md5]
+
+    # Deduplicate same book across devices (all-devices view only)
+    if not device_id:
+        books = _deduplicate_by_md5(books)
 
     return templates.TemplateResponse("library.html", {
         "request": request,
