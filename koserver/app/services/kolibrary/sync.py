@@ -93,7 +93,10 @@ def parse_lua_settings(content: str) -> dict:
         dp = _parse_flat_table(doc_props_text)
         for field in ("title", "authors", "series", "language", "description"):
             if field in dp and isinstance(dp[field], str):
-                result[field] = dp[field]
+                val = dp[field]
+                if field == "description":
+                    val = re.sub(r'<[^>]+>', '', val).strip()
+                result[field] = val
         if "series_index" in dp:
             try:
                 result["series_index"] = float(dp["series_index"])

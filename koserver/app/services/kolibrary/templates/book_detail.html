@@ -74,7 +74,7 @@
     {# Description #}
     {% if book.description %}
     <div style="font-size:0.875rem;line-height:1.6;color:var(--text-muted);max-width:600px;border-top:1px solid var(--border);padding-top:0.75rem">
-      {{ book.description }}
+      {{ book.description | striptags }}
     </div>
     {% endif %}
   </div>
