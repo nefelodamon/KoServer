@@ -187,82 +187,66 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
             sdr_dirs = [l.strip() for l in result.stdout.splitlines() if l.strip()]
             logger.info("KoLibrary: device %d — found %d .sdr dirs", device_id, len(sdr_dirs))
             total = len(sdr_dirs)
-            logger.info("KoLibrary: device %d — found %d .sdr dirs", device_id, total)
-
             added = updated = 0
 
-            async with conn.start_sftp_client() as sftp:
-                for idx, sdr_dir in enumerate(sdr_dirs, 1):
-                    book_path = sdr_dir[:-4]  # strip .sdr
-                    book_basename = os.path.basename(book_path)
+            for idx, sdr_dir in enumerate(sdr_dirs, 1):
+                book_path = sdr_dir[:-4]  # strip .sdr
+                book_basename = os.path.basename(book_path)
 
-                    _status(
-                        f"[{idx}/{total}] {book_basename}",
-                        books_added=added, books_updated=updated,
+                _status(
+                    f"[{idx}/{total}] {book_basename}",
+                    books_added=added, books_updated=updated,
+                )
+
+                # Find metadata lua file via ls (no SFTP needed)
+                ls_result = await conn.run(f'ls -1 "{sdr_dir}" 2>/dev/null', check=False)
+                lua_names = [
+                    n for n in ls_result.stdout.splitlines()
+                    if n.endswith(".lua") and not n.endswith(".lua.old")
+                ]
+                meta_luas = [n for n in lua_names if n.startswith("metadata.")]
+                chosen = meta_luas or lua_names
+                if not chosen:
+                    continue
+                lua_file = f"{sdr_dir}/{chosen[0]}"
+
+                # Get mtime via stat
+                stat_result = await conn.run(f'stat -c %Y "{lua_file}" 2>/dev/null', check=False)
+                try:
+                    mtime = int(stat_result.stdout.strip())
+                except (ValueError, TypeError):
+                    continue
+
+                # Skip if unchanged
+                existing = storage.get_book_by_path(db_path, device_id, book_path)
+                if existing and existing.file_mtime == mtime:
+                    continue
+
+                # Read lua file via cat
+                cat_result = await conn.run(f'cat "{lua_file}" 2>/dev/null', check=False)
+                if not cat_result.stdout:
+                    continue
+
+                try:
+                    meta = parse_lua_settings(cat_result.stdout)
+                    op = storage.upsert_book(
+                        db_path, device_id, book_path, mtime,
+                        title=meta["title"] or book_basename,
+                        authors=meta["authors"],
+                        series=meta["series"],
+                        series_index=meta["series_index"],
+                        language=meta["language"],
+                        pages=meta["pages"],
+                        description=meta["description"],
+                        cover_file=None,
+                        progress_pct=meta["percent_finished"],
                     )
-
-                    # Find the settings lua file: try metadata.<ext>.lua first,
-                    # then <bookname>.lua (older KOReader versions)
-                    lua_file = None
-                    try:
-                        entries = await sftp.readdir(sdr_dir)
-                        lua_names = [
-                            e.filename for e in entries
-                            if e.filename.endswith(".lua") and not e.filename.endswith(".lua.old")
-                        ]
-                        # prefer metadata.*.lua
-                        meta_luas = [n for n in lua_names if n.startswith("metadata.")]
-                        chosen = (meta_luas or lua_names)
-                        if not chosen:
-                            continue
-                        lua_file = f"{sdr_dir}/{chosen[0]}"
-                    except Exception:
-                        continue
-
-                    try:
-                        stat = await sftp.stat(lua_file)
-                        mtime = int(stat.mtime)
-                    except Exception:
-                        continue
-
-                    # Skip if unchanged
-                    existing = storage.get_book_by_path(db_path, device_id, book_path)
-                    if existing and existing.file_mtime == mtime:
-                        continue
-
-                    try:
-                        async with await sftp.open(lua_file, "r") as f:
-                            lua_content = await f.read()
-                        meta = parse_lua_settings(lua_content)
-
-                        # Skip nameless/empty entries
-                        if not meta["title"] and not book_basename:
-                            continue
-
-                        # Try to download cover image
-                        cover_file = await _download_cover(
-                            sftp, sdr_dir, device_id, book_basename, covers_dir
-                        )
-
-                        op = storage.upsert_book(
-                            db_path, device_id, book_path, mtime,
-                            title=meta["title"] or book_basename,
-                            authors=meta["authors"],
-                            series=meta["series"],
-                            series_index=meta["series_index"],
-                            language=meta["language"],
-                            pages=meta["pages"],
-                            description=meta["description"],
-                            cover_file=cover_file,
-                            progress_pct=meta["percent_finished"],
-                        )
-                        if op == "added":
-                            added += 1
-                        else:
-                            updated += 1
-
-                    except Exception as e:
-                        logger.warning("KoLibrary: failed to process %s: %s", lua_file, e)
+                    if op == "added":
+                        added += 1
+                    else:
+                        updated += 1
+                except Exception as e:
+                    logger.warning("KoLibrary: failed to process %s: %s", lua_file, e)
 
             storage.update_device_last_sync(db_path, device_id)
             msg = f"Done: {added} added, {updated} updated"
@@ -277,27 +261,4 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
         logger.error("KoLibrary: device %d SSH error: %s", device_id, e)
 
 
-async def _download_cover(
-    sftp, sdr_dir: str, device_id: int, book_basename: str, covers_dir: Path
-) -> Optional[str]:
-    """Try to find and download a cover image from the .sdr directory."""
-    try:
-        entries = await sftp.readdir(sdr_dir)
-        image_names = sorted(
-            [e.filename for e in entries if re.search(r"\.(jpg|jpeg|png)$", e.filename, re.I)],
-            # prefer thumbnail_ files (CoverBrowser), then cover.*, then anything
-            key=lambda n: (0 if n.startswith("thumbnail_") else 1 if "cover" in n.lower() else 2, n),
-        )
-        if not image_names:
-            return None
-
-        src = f"{sdr_dir}/{image_names[0]}"
-        dest_dir = covers_dir / str(device_id)
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        # Use a stable filename based on book basename
-        safe_name = re.sub(r"[^\w\-.]", "_", book_basename) + ".jpg"
-        dest = dest_dir / safe_name
-        await sftp.get(src, str(dest))
-        return f"{device_id}/{safe_name}"
-    except Exception:
-        return None
+# Keep placeholder so covers_dir arg stays valid for future use
