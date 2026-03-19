@@ -120,10 +120,20 @@ def compute_stats(db_path: Path) -> UserStats:
                date(MAX(p.start_time), 'unixepoch') as last_read,
                MAX(p.page) as max_page,
                MAX(p.total_pages) as total_pages,
-               COUNT(DISTINCT CAST(p.start_time / 86400 AS INTEGER)) as days_read
+               p.id_book as book_id
         FROM page_stat_data p JOIN book b ON b.id = p.id_book
         GROUP BY p.id_book
     """
+
+    # Dedicated days-read query: same epoch-division approach used by the calendar endpoint,
+    # run as a standalone query so it isn't affected by the complex GROUP BY context.
+    _days_rows = conn.execute("""
+        SELECT id_book, COUNT(DISTINCT CAST(start_time / 86400 AS INTEGER)) as dr
+        FROM page_stat_data
+        WHERE start_time > 0
+        GROUP BY id_book
+    """).fetchall()
+    _days_by_id: dict[int, int] = {r["id_book"]: (r["dr"] or 0) for r in _days_rows}
 
     def _make_book_stat(r) -> BookStat:
         pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
@@ -135,7 +145,7 @@ def compute_stats(db_path: Path) -> UserStats:
             started=r["started"] or "",
             last_read=r["last_read"] or "",
             status="Finished" if pct >= 90 else "Reading",
-            days_read=r["days_read"] or 0,
+            days_read=_days_by_id.get(r["book_id"], 0),
         )
 
     def _merge_duplicates(books: list[BookStat]) -> list[BookStat]:
@@ -177,17 +187,7 @@ def compute_stats(db_path: Path) -> UserStats:
     all_books.sort(key=lambda b: b.last_read, reverse=True)
     books_read = len(all_books)
 
-    # Fallback: estimate days_read from date range for books without session timestamps
-    for b in all_books:
-        if b.days_read == 0 and b.started and b.last_read \
-                and b.started > "1971-01-01" and b.last_read > "1971-01-01":
-            try:
-                b.days_read = max(1, (date.fromisoformat(b.last_read)
-                                      - date.fromisoformat(b.started)).days + 1)
-            except Exception:
-                pass
-
-    # Sync days_read from all_books (full merge, with fallback applied) into top_books
+    # Sync days_read from all_books (full merge) into top_books
     _all_days = {(b.title.lower().strip(), b.authors.lower().strip()): b.days_read for b in all_books}
     for b in top_books:
         key = (b.title.lower().strip(), b.authors.lower().strip())
