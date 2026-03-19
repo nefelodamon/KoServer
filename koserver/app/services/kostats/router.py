@@ -1,12 +1,14 @@
 import base64
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+import sqlite3
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
@@ -297,6 +299,68 @@ async def user_stats(
         "user_stats.html",
         {"request": request, "username": username, "stats": stats, "users": users, "db_info": db_info},
     )
+
+
+@router.get("/stats/{username}/book-data")
+async def book_data(
+    username: str,
+    _: Annotated[str, Depends(require_ha_auth)],
+    title: str = Query(...),
+    year: int = Query(...),
+    month: int = Query(...),
+):
+    settings = get_settings()
+    db_path = settings.kostats_dir / username / "statistics.sqlite3"
+    if not db_path.is_file():
+        raise HTTPException(status_code=404)
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        book_ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM book WHERE title = ? COLLATE NOCASE", (title,)
+        ).fetchall()]
+        if not book_ids:
+            conn.close()
+            logger.warning("book-data: no book found for title=%r user=%s", title, username)
+            return JSONResponse({"days": {}, "hours": {}, "debug": f"no book found: {title!r}"})
+
+        # Use epoch range instead of strftime for reliable filtering
+        t_start = int(datetime(year, month, 1, tzinfo=timezone.utc).timestamp())
+        if month == 12:
+            t_end = int(datetime(year + 1, 1, 1, tzinfo=timezone.utc).timestamp())
+        else:
+            t_end = int(datetime(year, month + 1, 1, tzinfo=timezone.utc).timestamp())
+
+        ph = ",".join("?" * len(book_ids))
+        args = [*book_ids, t_start, t_end]
+        day_rows = conn.execute(f"""
+            SELECT CAST(strftime('%d', start_time, 'unixepoch') AS INTEGER) as d,
+                   SUM(duration) / 60.0 as mins
+            FROM page_stat_data
+            WHERE id_book IN ({ph})
+              AND start_time >= ? AND start_time < ?
+            GROUP BY d
+        """, args).fetchall()
+        hour_rows = conn.execute(f"""
+            SELECT CAST(strftime('%d', start_time, 'unixepoch') AS INTEGER) as d,
+                   CAST(strftime('%H', start_time, 'unixepoch') AS INTEGER) as h,
+                   SUM(duration) / 60.0 as mins
+            FROM page_stat_data
+            WHERE id_book IN ({ph})
+              AND start_time >= ? AND start_time < ?
+            GROUP BY d, h
+        """, args).fetchall()
+        conn.close()
+    except Exception as exc:
+        logger.exception("book-data error for user=%s title=%r: %s", username, title, exc)
+        return JSONResponse({"days": {}, "hours": {}, "debug": str(exc)}, status_code=500)
+
+    days = {r["d"]: round(r["mins"], 1) for r in day_rows}
+    hours: dict = {}
+    for r in hour_rows:
+        hours.setdefault(r["d"], {})[r["h"]] = round(r["mins"], 1)
+    logger.info("book-data: user=%s title=%r %d-%02d → %d days", username, title, year, month, len(days))
+    return JSONResponse({"days": days, "hours": hours})
 
 
 @router.get("/settings", response_class=HTMLResponse)

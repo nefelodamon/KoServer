@@ -318,9 +318,18 @@ async function loadCalendar() {
     '&year=' + calYear + '&month=' + calMonth;
   try {
     const resp = await fetch(url, { credentials: 'same-origin' });
-    calData = await resp.json();
+    const json = await resp.json();
+    if (!resp.ok) {
+      console.error('book-data error', resp.status, json);
+      calData = { days: {}, hours: {}, _error: resp.status };
+    } else {
+      calData = json;
+      if (json.debug) console.warn('book-data debug:', json.debug);
+    }
+    console.log('book-data url:', url, '→', resp.status, 'days:', Object.keys(calData.days || {}).length);
   } catch(e) {
-    calData = { days: {}, hours: {} };
+    console.error('book-data fetch failed:', e);
+    calData = { days: {}, hours: {}, _error: 'network' };
   }
   renderCalendar();
 }
@@ -329,6 +338,23 @@ function renderCalendar() {
   const grid = document.getElementById('cal-grid');
   grid.innerHTML = '';
 
+  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+  const firstDow    = new Date(calYear, calMonth - 1, 1).getDay(); // 0=Sun
+
+  const dayMins = calData.days || {};
+  const vals = Object.values(dayMins).map(Number).filter(v => v > 0);
+  const maxMins = vals.length ? Math.max(...vals) : 1;
+
+  // Show empty/error state (no DOW headers needed)
+  if (calData._error) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--danger);font-size:0.8rem;padding:1rem">Error loading data (${calData._error})</div>`;
+    return;
+  }
+  if (!vals.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);font-size:0.8rem;padding:1rem">No reading this month</div>';
+    return;
+  }
+
   // Day-of-week headers
   DOW.forEach(d => {
     const el = document.createElement('div');
@@ -336,13 +362,6 @@ function renderCalendar() {
     el.textContent = d;
     grid.appendChild(el);
   });
-
-  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
-  const firstDow    = new Date(calYear, calMonth - 1, 1).getDay(); // 0=Sun
-
-  const dayMins = calData.days || {};
-  const vals = Object.values(dayMins).map(Number).filter(v => v > 0);
-  const maxMins = vals.length ? Math.max(...vals) : 1;
 
   // Empty cells before first day
   for (let i = 0; i < firstDow; i++) {
