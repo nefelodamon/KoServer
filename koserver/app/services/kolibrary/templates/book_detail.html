@@ -14,14 +14,22 @@
   {# Cover #}
   <div style="flex-shrink:0">
     {% if book.cover_file %}
-    <img src="{{ root }}/services/kolibrary/covers/{{ book.cover_file }}"
-         alt="{{ book.title }}"
-         style="width:220px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.4);display:block">
+    {% set cover_url = root ~ '/services/kolibrary/covers/' ~ book.cover_file %}
+    <img src="{{ cover_url }}" alt="{{ book.title }}" id="book-cover-img"
+         style="width:220px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.4);display:block;cursor:zoom-in"
+         onclick="openLightbox('{{ cover_url }}')">
     {% else %}
     <div style="width:220px;height:320px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:var(--text-muted);box-shadow:0 4px 16px rgba(0,0,0,0.4)">
       {{ book.title[:2] | upper }}
     </div>
     {% endif %}
+  </div>
+
+  {# Cover lightbox #}
+  <div id="lightbox" onclick="closeLightbox()"
+       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;cursor:zoom-out;align-items:center;justify-content:center">
+    <img id="lightbox-img" src="" alt=""
+         style="max-width:90vw;max-height:90vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);object-fit:contain">
   </div>
 
   {# Metadata #}
@@ -70,6 +78,17 @@
       <div><span style="color:var(--text-muted)">Device</span><br>{{ book.device_display_name }}</div>
       <div><span style="color:var(--text-muted)">Last synced</span><br>{{ book.last_synced_at[:10] }}</div>
     </div>
+
+    {# KoCharacters link #}
+    {% if kocharacters_book_id %}
+    <div style="margin-bottom:1rem">
+      <a href="{{ root }}/services/kocharacters/books/{{ kocharacters_book_id }}"
+         style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.85rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;color:var(--text);text-decoration:none"
+         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        🎭 View characters in KoCharacters
+      </a>
+    </div>
+    {% endif %}
 
     {# Description #}
     {% if book.description %}
@@ -312,6 +331,19 @@ function showDayDetail(idx, day, dayEl) {
   detail.innerHTML = html;
   detail.classList.remove('hidden');
 }
+
+// ── Lightbox ─────────────────────────────────────────────────────────────
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lightbox-img').src = src;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
 // Initialise each calendar to last-read month (passed via data attributes)
 document.addEventListener('DOMContentLoaded', () => {

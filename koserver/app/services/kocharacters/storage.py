@@ -457,6 +457,26 @@ def get_characters(db_path: Path, book_id: str) -> list[Character]:
     return [_row_to_character(r) for r in rows]
 
 
+def find_book_id_for_library_book(db_path: Path, title: str, partial_md5: str = "") -> str | None:
+    """Return the book_id of a non-deleted KoCharacters book matching md5 or title, or None."""
+    if not db_path.is_file():
+        return None
+    conn = _connect(db_path)
+    row = None
+    if partial_md5:
+        row = conn.execute(
+            "SELECT book_id FROM books WHERE partial_md5 = ? AND deleted_at IS NULL LIMIT 1",
+            (partial_md5,),
+        ).fetchone()
+    if not row and title:
+        row = conn.execute(
+            "SELECT book_id FROM books WHERE title = ? COLLATE NOCASE AND deleted_at IS NULL LIMIT 1",
+            (title,),
+        ).fetchone()
+    conn.close()
+    return row["book_id"] if row else None
+
+
 def delete_book(db_path: Path, book_id: str) -> bool:
     conn = _connect(db_path)
     cur = conn.execute("DELETE FROM books WHERE book_id = ?", (book_id,))

@@ -183,11 +183,24 @@ async def book_detail(
     except Exception:
         pass  # KoStats not configured — degrade gracefully
 
+    # KoCharacters link
+    kocharacters_book_id: str | None = None
+    try:
+        from app.services.kocharacters import storage as kochar_storage
+        kocharacters_book_id = kochar_storage.find_book_id_for_library_book(
+            settings.kocharacters_db_path,
+            title=book.title,
+            partial_md5=book.md5 or "",
+        )
+    except Exception:
+        pass
+
     root = request.scope.get("root_path", "").rstrip("/")
     return templates.TemplateResponse("book_detail.html", {
         "request": request,
         "book": book,
         "book_stats": book_stats,
+        "kocharacters_book_id": kocharacters_book_id,
         "root": root,
     })
 
