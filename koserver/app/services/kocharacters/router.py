@@ -214,6 +214,24 @@ async def book_detail(
     book = storage.get_book(settings.kocharacters_db_path, book_id)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
+    # Auto-detect cover if not recorded in DB
+    if not book.cover_filename:
+        for candidate in ("cover.jpg", "cover.jpeg", "cover.png", "cover.webp"):
+            if (settings.portraits_dir / book_id / candidate).exists():
+                book.cover_filename = candidate
+                storage.upsert_book(
+                    settings.kocharacters_db_path, book_id, title=book.title,
+                    context=book.context, authors=book.authors, series=book.series,
+                    series_index=book.series_index, language=book.language,
+                    description=book.description,
+                    identifiers=json.dumps(book.identifiers),
+                    keywords=json.dumps(book.keywords),
+                    total_pages=book.total_pages, percent_finished=book.percent_finished,
+                    reading_status=book.reading_status, last_read=book.last_read,
+                    highlights=book.highlights, notes=book.notes,
+                    partial_md5=book.partial_md5, cover_filename=candidate,
+                )
+                break
     characters = storage.get_characters(settings.kocharacters_db_path, book_id)
     kosync_progress = (
         kosync_storage.get_progress_by_document(settings.kosync_db_path, book.partial_md5)
