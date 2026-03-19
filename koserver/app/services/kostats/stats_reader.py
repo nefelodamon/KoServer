@@ -32,6 +32,9 @@ class BookStat:
     authors: str
     hours: float
     pages_per_hour: float
+    started: str
+    last_read: str
+    status: str
 
 
 @dataclass
@@ -48,6 +51,7 @@ class UserStats:
     monthly: list[MonthStat]
     max_monthly_hours: float
     top_books: list[BookStat]
+    all_books: list[BookStat]
     by_hour: list[HourStat]
     max_hour_minutes: float
 
@@ -107,25 +111,42 @@ def compute_stats(db_path: Path) -> UserStats:
     monthly = [MonthStat(month=r["month"], hours=round(r["hrs"], 1)) for r in rows]
     max_monthly = max((m.hours for m in monthly), default=1) or 1
 
-    # Top books by time spent
-    rows = conn.execute("""
+    _BOOK_QUERY = """
         SELECT b.title, COALESCE(b.authors, '') as authors,
                SUM(p.duration) / 3600.0 as hrs,
-               COUNT(*) * 1.0 / (SUM(p.duration) / 3600.0) as speed
+               COUNT(*) * 1.0 / (SUM(p.duration) / 3600.0) as speed,
+               date(MIN(p.start_time), 'unixepoch') as started,
+               date(MAX(p.start_time), 'unixepoch') as last_read,
+               MAX(p.page) as max_page,
+               p.total_pages
         FROM page_stat_data p JOIN book b ON b.id = p.id_book
-        WHERE b.pages > 50
-        GROUP BY p.id_book HAVING hrs > 0.25
-        ORDER BY hrs DESC LIMIT 8
-    """).fetchall()
-    top_books = [
-        BookStat(
+        GROUP BY p.id_book
+    """
+
+    def _make_book_stat(r) -> BookStat:
+        pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
+        status = "Finished" if pct >= 90 else "Reading"
+        return BookStat(
             title=r["title"],
             authors=r["authors"],
             hours=round(r["hrs"], 1),
-            pages_per_hour=round(r["speed"], 1),
+            pages_per_hour=round(r["speed"], 1) if r["hrs"] else 0,
+            started=r["started"] or "",
+            last_read=r["last_read"] or "",
+            status=status,
         )
-        for r in rows
-    ]
+
+    # Top books by time spent
+    rows = conn.execute(
+        _BOOK_QUERY + " HAVING hrs > 0.25 AND b.pages > 50 ORDER BY hrs DESC LIMIT 8"
+    ).fetchall()
+    top_books = [_make_book_stat(r) for r in rows]
+
+    # All books
+    rows = conn.execute(
+        _BOOK_QUERY + " ORDER BY last_read DESC"
+    ).fetchall()
+    all_books = [_make_book_stat(r) for r in rows]
 
     # By hour of day (UTC — server runs UTC)
     rows = conn.execute("""
@@ -153,6 +174,7 @@ def compute_stats(db_path: Path) -> UserStats:
         monthly=monthly,
         max_monthly_hours=max_monthly,
         top_books=top_books,
+        all_books=all_books,
         by_hour=by_hour,
         max_hour_minutes=max_hour,
     )

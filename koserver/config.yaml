@@ -1,5 +1,5 @@
 name: KoServer
-version: "0.1.54"
+version: "0.1.55"
 slug: koserver
 description: Host for various services including KoCharacters (KOReader character viewer)
 url: https://github.com/nefelodamon/KoServer
