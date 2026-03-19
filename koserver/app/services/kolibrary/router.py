@@ -272,6 +272,29 @@ async def clear_log(
     return RedirectResponse(url=f"{root}/services/kolibrary/settings", status_code=303)
 
 
+@router.post("/settings/clear-books/{device_id}")
+async def clear_device_books(
+    device_id: int,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    storage.delete_device_books(settings.kolibrary_db_path, device_id)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kolibrary/settings", status_code=303)
+
+
+@router.post("/settings/clear-all-books")
+async def clear_all_books(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    storage.delete_all_books(settings.kolibrary_db_path)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kolibrary/settings", status_code=303)
+
+
 @router.post("/settings/delete-device/{device_id}")
 async def delete_device(
     device_id: int,

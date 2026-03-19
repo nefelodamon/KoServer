@@ -62,6 +62,11 @@
   <div class="settings-section-header">
     <h2>Devices</h2>
     <span class="meta-badge">{{ devices | length }}</span>
+    <form method="post" action="{{ root }}/services/kolibrary/settings/clear-all-books"
+          style="margin-left:auto"
+          onsubmit="return confirm('Clear book data for ALL devices? Books will be re-imported on next sync.')">
+      <button type="submit" class="btn-danger" style="font-size:0.8rem">🗑️ Clear all book data</button>
+    </form>
   </div>
 
   {% for device in devices %}
@@ -85,6 +90,11 @@
                 onclick="testConnection({{ device.id }}, this)">🔌 Test</button>
         <button class="btn-icon" title="Edit"
                 onclick="toggleEdit({{ device.id }})">✏️</button>
+        <form method="post" action="{{ root }}/services/kolibrary/settings/clear-books/{{ device.id }}"
+              style="display:inline"
+              onsubmit="return confirm('Clear all book data for &quot;{{ device.display_name }}&quot;? Books will be re-imported on next sync.')">
+          <button type="submit" class="btn-icon" style="font-size:0.8rem" title="Clear book data">🗑️ Books</button>
+        </form>
         <form method="post" action="{{ root }}/services/kolibrary/settings/delete-device/{{ device.id }}"
               style="display:inline"
               onsubmit="return confirm('Delete device &quot;{{ device.display_name }}&quot; and all its books?')">

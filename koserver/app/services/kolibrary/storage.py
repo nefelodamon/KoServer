@@ -304,6 +304,20 @@ def load_kosync_progress(kosync_db_path: Path) -> dict[str, float]:
         return {}
 
 
+def delete_device_books(db_path: Path, device_id: int) -> None:
+    conn = _connect(db_path)
+    conn.execute("DELETE FROM kolibrary_books WHERE device_id = ?", (device_id,))
+    conn.commit()
+    conn.close()
+
+
+def delete_all_books(db_path: Path) -> None:
+    conn = _connect(db_path)
+    conn.execute("DELETE FROM kolibrary_books")
+    conn.commit()
+    conn.close()
+
+
 def list_books(db_path: Path, device_id: Optional[int] = None,
                search: str = "", status_filter: str = "") -> list[KoBook]:
     conn = _connect(db_path)
