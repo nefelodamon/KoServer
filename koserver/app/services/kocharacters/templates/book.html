@@ -166,7 +166,10 @@
     </div>
 
     <div class="character-body">
-      <h3 class="character-name {% if not char.unlocked %}spoiler-text{% endif %}">{{ char.name }}</h3>
+      <div class="character-header">
+        <h3 class="character-name {% if not char.unlocked %}spoiler-text{% endif %}">{{ char.name }}</h3>
+        <span class="role-badge role-{{ char.role }}">{{ char.role }}</span>
+      </div>
       {% if char.occupation %}
       <p class="character-occupation">{{ char.occupation }}</p>
       {% endif %}
