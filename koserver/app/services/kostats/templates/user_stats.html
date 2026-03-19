@@ -126,31 +126,30 @@
 <div class="panel">
   <div class="panel-title">Top 10 books by time</div>
   {% if stats.top_books %}
-  <table class="recycle-table sortable-table" id="top-books-table">
+  <table class="recycle-table sortable-table stats-table" id="top-books-table">
     <thead>
       <tr>
         <th class="sortable" data-col="0">Book</th>
-        <th class="sortable" data-col="1">Status</th>
-        <th class="sortable" data-col="2">Started</th>
-        <th class="sortable" data-col="3">Last read</th>
-        <th class="sortable" data-col="4">Time</th>
-        <th class="sortable" data-col="5">Days read</th>
-        <th class="sortable" data-col="6">pg/h</th>
+        <th class="sortable" data-col="1">Author</th>
+        <th class="sortable" data-col="2">Status</th>
+        <th class="sortable" data-col="3">Started</th>
+        <th class="sortable" data-col="4">Last read</th>
+        <th class="sortable" data-col="5">Time</th>
+        <th class="sortable" data-col="6">Days</th>
+        <th class="sortable" data-col="7">pg/h</th>
       </tr>
     </thead>
     <tbody>
     {% for b in stats.top_books %}
       <tr class="book-row" data-title="{{ b.title }}" data-authors="{{ b.authors }}" data-status="{{ b.status }}" data-started="{{ b.started }}" data-lastread="{{ b.last_read }}" data-hours="{{ b.hours }}" data-pph="{{ b.pages_per_hour }}">
-        <td>
-          <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
-          {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
-        </td>
+        <td data-val="{{ b.title }}" style="font-weight:500">{{ b.title }}</td>
+        <td data-val="{{ b.authors }}" style="color:var(--text-muted)">{{ b.authors }}</td>
         <td data-val="{{ b.status }}"><span class="meta-badge status-{{ b.status | lower }}">{{ b.status }}</span></td>
-        <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
-        <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
+        <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.started | localtime }}</td>
+        <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.last_read | localtime }}</td>
         <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
-        <td data-val="{{ b.days_read }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.days_read }}</td>
-        <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
+        <td data-val="{{ b.days_read }}" style="color:var(--text-muted)">{{ b.days_read }}</td>
+        <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted)">{{ b.pages_per_hour }}</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -175,31 +174,30 @@
     </div>
   </div>
   {% if stats.all_books %}
-  <table class="recycle-table sortable-table" id="all-books-table">
+  <table class="recycle-table sortable-table stats-table" id="all-books-table">
     <thead>
       <tr>
         <th class="sortable" data-col="0">Book</th>
-        <th class="sortable" data-col="1">Status</th>
-        <th class="sortable" data-col="2">Started</th>
-        <th class="sortable" data-col="3">Last read</th>
-        <th class="sortable" data-col="4">Time</th>
-        <th class="sortable" data-col="5">Days read</th>
-        <th class="sortable" data-col="6">pg/h</th>
+        <th class="sortable" data-col="1">Author</th>
+        <th class="sortable" data-col="2">Status</th>
+        <th class="sortable" data-col="3">Started</th>
+        <th class="sortable" data-col="4">Last read</th>
+        <th class="sortable" data-col="5">Time</th>
+        <th class="sortable" data-col="6">Days</th>
+        <th class="sortable" data-col="7">pg/h</th>
       </tr>
     </thead>
     <tbody>
     {% for b in stats.all_books %}
       <tr class="book-row" data-title="{{ b.title }}" data-authors="{{ b.authors }}" data-status="{{ b.status }}" data-started="{{ b.started }}" data-lastread="{{ b.last_read }}" data-hours="{{ b.hours }}" data-pph="{{ b.pages_per_hour }}">
-        <td>
-          <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
-          {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
-        </td>
+        <td data-val="{{ b.title }}" style="font-weight:500">{{ b.title }}</td>
+        <td data-val="{{ b.authors }}" style="color:var(--text-muted)">{{ b.authors }}</td>
         <td data-val="{{ b.status }}"><span class="meta-badge status-{{ b.status | lower }}">{{ b.status }}</span></td>
-        <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
-        <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
+        <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.started | localtime }}</td>
+        <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.last_read | localtime }}</td>
         <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
-        <td data-val="{{ b.days_read }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.days_read }}</td>
-        <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
+        <td data-val="{{ b.days_read }}" style="color:var(--text-muted)">{{ b.days_read }}</td>
+        <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted)">{{ b.pages_per_hour }}</td>
       </tr>
     {% endfor %}
     </tbody>

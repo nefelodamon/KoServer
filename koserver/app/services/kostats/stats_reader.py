@@ -120,7 +120,7 @@ def compute_stats(db_path: Path) -> UserStats:
                date(MAX(p.start_time), 'unixepoch') as last_read,
                MAX(p.page) as max_page,
                MAX(p.total_pages) as total_pages,
-               COUNT(DISTINCT date(p.start_time, 'unixepoch')) as days_read
+               COUNT(DISTINCT CAST(p.start_time / 86400 AS INTEGER)) as days_read
         FROM page_stat_data p JOIN book b ON b.id = p.id_book
         GROUP BY p.id_book
     """
@@ -169,13 +169,19 @@ def compute_stats(db_path: Path) -> UserStats:
     top_books.sort(key=lambda b: b.hours, reverse=True)
     top_books = top_books[:10]
 
-    # All books
+    # All books (computed before syncing days_read back to top_books)
     rows = conn.execute(
         _BOOK_QUERY + " ORDER BY last_read DESC"
     ).fetchall()
     all_books = _merge_duplicates([_make_book_stat(r) for r in rows])
     all_books.sort(key=lambda b: b.last_read, reverse=True)
     books_read = len(all_books)
+
+    # Sync days_read from all_books (full merge) into top_books
+    _all_days = {(b.title.lower().strip(), b.authors.lower().strip()): b.days_read for b in all_books}
+    for b in top_books:
+        key = (b.title.lower().strip(), b.authors.lower().strip())
+        b.days_read = _all_days.get(key, b.days_read)
 
     # By hour of day (UTC — server runs UTC)
     rows = conn.execute("""

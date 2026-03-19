@@ -569,6 +569,9 @@ th.sort-desc::after { content: ' ▼'; font-size: 0.65rem; opacity: 0.8; }
 
 .recycle-table tbody tr:hover { background: var(--surface2); }
 
+.stats-table th, .stats-table td { padding: 0.3rem 0.6rem; font-size: 0.82rem; }
+.stats-table th { font-size: 0.72rem; }
+
 .recycle-table a { color: var(--accent); }
 .recycle-table a:hover { color: var(--accent-hover); }
 
