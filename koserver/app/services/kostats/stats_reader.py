@@ -45,6 +45,17 @@ class HourStat:
 
 
 @dataclass
+class BookDetailStats:
+    book_stat: "BookStat"
+    daily: list["DayStat"]
+    max_daily_minutes: float
+    monthly: list["MonthStat"]
+    max_monthly_hours: float
+    by_hour: list["HourStat"]
+    max_hour_minutes: float
+
+
+@dataclass
 class UserStats:
     summary: StatsSummary
     daily: list[DayStat]
@@ -265,4 +276,128 @@ def compute_stats(
         by_hour=by_hour,
         max_hour_minutes=max_hour,
         status_source=status_source,
+    )
+
+
+def get_book_detail_stats(
+    db_path: Path,
+    title: str,
+    kosync_db_path: Path | None = None,
+    read_pct_threshold: int = 95,
+) -> BookDetailStats | None:
+    """Return per-book stats for the book detail page, or None if no data found."""
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+
+    _kosync_reading: set[str] | None = None
+    if kosync_db_path and kosync_db_path.is_file():
+        try:
+            kc = sqlite3.connect(str(kosync_db_path))
+            _kosync_reading = {r[0] for r in kc.execute("SELECT document FROM kosync_progress").fetchall()}
+            kc.close()
+        except Exception:
+            pass
+
+    book_rows = conn.execute(
+        "SELECT id, md5, title, COALESCE(authors, '') as authors FROM book WHERE title = ? COLLATE NOCASE",
+        (title,),
+    ).fetchall()
+    if not book_rows:
+        conn.close()
+        return None
+
+    book_ids = [r["id"] for r in book_rows]
+    ph = ",".join("?" * len(book_ids))
+
+    r = conn.execute(f"""
+        SELECT SUM(duration) / 3600.0 as hrs,
+               COUNT(*) * 1.0 / NULLIF(SUM(duration) / 3600.0, 0) as speed,
+               date(MIN(start_time), 'unixepoch') as started,
+               date(MAX(start_time), 'unixepoch') as last_read,
+               MAX(page) as max_page,
+               MAX(total_pages) as total_pages
+        FROM page_stat_data WHERE id_book IN ({ph})
+    """, book_ids).fetchone()
+
+    if not r or not r["hrs"]:
+        conn.close()
+        return None
+
+    md5s = [row["md5"] for row in book_rows if row["md5"]]
+    if _kosync_reading is not None:
+        status = "Reading" if any(md5 in _kosync_reading for md5 in md5s) else "Finished"
+    else:
+        pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
+        status = "Finished" if pct >= read_pct_threshold else "Reading"
+
+    day_set: set = set()
+    for ts_row in conn.execute(
+        f"SELECT start_time FROM page_stat_data WHERE id_book IN ({ph}) AND start_time IS NOT NULL",
+        book_ids,
+    ).fetchall():
+        try:
+            ts = int(ts_row["start_time"])
+            if ts > 86400:
+                day_set.add(ts // 86400)
+        except (TypeError, ValueError):
+            pass
+
+    first_book = book_rows[0]
+    book_stat = BookStat(
+        title=first_book["title"],
+        authors=first_book["authors"] or "",
+        hours=round(r["hrs"] or 0, 1),
+        pages_per_hour=round(r["speed"] or 0, 1),
+        started=r["started"] or "",
+        last_read=r["last_read"] or "",
+        status=status,
+        days_read=len(day_set),
+    )
+
+    # Daily — last 30 days
+    day_rows = conn.execute(f"""
+        SELECT date(start_time, 'unixepoch') as day, SUM(duration) / 60.0 as mins
+        FROM page_stat_data
+        WHERE id_book IN ({ph}) AND start_time > strftime('%s', 'now', '-30 days')
+        GROUP BY day
+    """, book_ids).fetchall()
+    day_map = {row["day"]: row["mins"] for row in day_rows}
+    today = date.today()
+    daily = [
+        DayStat(
+            date=(today - timedelta(days=i)).isoformat(),
+            minutes=day_map.get((today - timedelta(days=i)).isoformat(), 0),
+        )
+        for i in range(29, -1, -1)
+    ]
+    max_daily = max((d.minutes for d in daily), default=1) or 1
+
+    # Monthly
+    month_rows = conn.execute(f"""
+        SELECT strftime('%Y-%m', start_time, 'unixepoch') as month, SUM(duration) / 3600.0 as hrs
+        FROM page_stat_data WHERE id_book IN ({ph}) GROUP BY month ORDER BY month
+    """, book_ids).fetchall()
+    monthly = [MonthStat(month=row["month"], hours=round(row["hrs"], 1)) for row in month_rows]
+    max_monthly = max((m.hours for m in monthly), default=1) or 1
+
+    # By hour of day
+    hour_rows = conn.execute(f"""
+        SELECT CAST(strftime('%H', start_time, 'unixepoch') AS INTEGER) as hr,
+               SUM(duration) / 60.0 as mins
+        FROM page_stat_data WHERE id_book IN ({ph}) GROUP BY hr ORDER BY hr
+    """, book_ids).fetchall()
+    hour_map = {row["hr"]: row["mins"] for row in hour_rows}
+    by_hour = [HourStat(hour=h, minutes=hour_map.get(h, 0)) for h in range(24)]
+    max_hour = max((h.minutes for h in by_hour), default=1) or 1
+
+    conn.close()
+
+    return BookDetailStats(
+        book_stat=book_stat,
+        daily=daily,
+        max_daily_minutes=max_daily,
+        monthly=monthly,
+        max_monthly_hours=max_monthly,
+        by_hour=by_hour,
+        max_hour_minutes=max_hour,
     )

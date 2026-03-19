@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }} — KoLibrary{% endblock %}
+{% block nav_kolibrary %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="{{ root }}/services/kolibrary" class="back-link">← KoLibrary</a>
+  <h1 style="font-size:1.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ book.title }}</h1>
+</div>
+
+{# ── Book hero ── #}
+<div style="display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:2rem">
+
+  {# Cover #}
+  <div style="flex-shrink:0">
+    {% if book.cover_file %}
+    <img src="{{ root }}/services/kolibrary/covers/{{ book.cover_file }}"
+         alt="{{ book.title }}"
+         style="width:220px;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.4);display:block">
+    {% else %}
+    <div style="width:220px;height:320px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:var(--text-muted);box-shadow:0 4px 16px rgba(0,0,0,0.4)">
+      {{ book.title[:2] | upper }}
+    </div>
+    {% endif %}
+  </div>
+
+  {# Metadata #}
+  <div style="flex:1;min-width:220px">
+    <h2 style="margin:0 0 0.25rem;font-size:1.5rem;line-height:1.25">{{ book.title }}</h2>
+    {% if book.authors %}
+    <div style="font-size:1rem;color:var(--text-muted);margin-bottom:0.75rem">{{ book.authors }}</div>
+    {% endif %}
+
+    {# Status + progress #}
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap">
+      {% if book.status == 'complete' %}
+        <span class="status-badge finished">Finished</span>
+      {% elif book.status == 'reading' %}
+        <span class="status-badge reading">Reading</span>
+      {% elif book.status == 'abandoned' %}
+        <span class="status-badge abandoned">Abandoned</span>
+      {% elif book.status == 'tbr' %}
+        <span class="status-badge unread">To Read</span>
+      {% else %}
+        <span class="status-badge unread">—</span>
+      {% endif %}
+      {% if book.status != 'complete' and book.progress_pct > 0 %}
+      <div style="display:flex;align-items:center;gap:0.5rem;flex:1;min-width:120px">
+        <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+          <div style="width:{{ (book.progress_pct * 100) | int }}%;height:100%;background:var(--accent);border-radius:4px"></div>
+        </div>
+        <span style="font-size:0.82rem;color:var(--text-muted);white-space:nowrap">{{ (book.progress_pct * 100) | int }}%</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {# Meta grid #}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.35rem 1.5rem;font-size:0.85rem;margin-bottom:1rem">
+      {% if book.series %}
+      <div><span style="color:var(--text-muted)">Series</span><br>
+        {{ book.series }}{% if book.series_index %} #{{ book.series_index | int if book.series_index == book.series_index | int else book.series_index }}{% endif %}
+      </div>
+      {% endif %}
+      {% if book.language %}
+      <div><span style="color:var(--text-muted)">Language</span><br>{{ book.language }}</div>
+      {% endif %}
+      {% if book.pages %}
+      <div><span style="color:var(--text-muted)">Pages</span><br>{{ book.pages }}</div>
+      {% endif %}
+      <div><span style="color:var(--text-muted)">Device</span><br>{{ book.device_display_name }}</div>
+      <div><span style="color:var(--text-muted)">Last synced</span><br>{{ book.last_synced_at[:10] }}</div>
+    </div>
+
+    {# Description #}
+    {% if book.description %}
+    <div style="font-size:0.875rem;line-height:1.6;color:var(--text-muted);max-width:600px;border-top:1px solid var(--border);padding-top:0.75rem">
+      {{ book.description }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── KoStats section ── #}
+{% if book_stats %}
+<h2 style="font-size:1rem;margin:0 0 1rem;border-bottom:1px solid var(--border);padding-bottom:0.5rem">Reading Statistics</h2>
+
+{% for username, bs in book_stats.items() %}
+<div style="margin-bottom:2.5rem">
+  {% if book_stats | length > 1 %}
+  <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem">
+    <span>👤</span><strong>{{ username }}</strong>
+  </div>
+  {% endif %}
+
+  {# Summary cards #}
+  <div class="stats-grid" style="margin-bottom:1rem">
+    <div class="stat-card">
+      <div class="stat-value">{{ (bs.book_stat.hours * 60) | mins_hm }}</div>
+      <div class="stat-label">Time read</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ bs.book_stat.days_read }}</div>
+      <div class="stat-label">Days read</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ bs.book_stat.pages_per_hour }}</div>
+      <div class="stat-label">Pages / hour</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">
+        <span class="meta-badge status-{{ bs.book_stat.status | lower }}">{{ bs.book_stat.status }}</span>
+      </div>
+      <div class="stat-label">Status</div>
+    </div>
+  </div>
+
+  {# Dates row #}
+  <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;display:flex;gap:1.5rem;flex-wrap:wrap">
+    {% if bs.book_stat.started %}
+    <span>Started: <strong style="color:var(--text)">{{ bs.book_stat.started | localtime }}</strong></span>
+    {% endif %}
+    {% if bs.book_stat.last_read %}
+    <span>Last read: <strong style="color:var(--text)">{{ bs.book_stat.last_read | localtime }}</strong></span>
+    {% endif %}
+  </div>
+
+  {# Last 30 days #}
+  <div class="panel" style="margin-bottom:1rem">
+    <div class="panel-title">Last 30 days</div>
+    <div class="bar-chart">
+      {% for d in bs.daily %}
+      {% set px = ((d.minutes / bs.max_daily_minutes) * 90) | int %}
+      <div class="bar-col">
+        <div class="bar" style="height:{{ px }}px" title="{{ d.date }}: {{ d.minutes | mins_hm }}"></div>
+        <div class="bar-x-label">
+          {% if loop.index in [1, 8, 15, 22, 30] %}{{ d.date[8:] }}-{{ d.date[5:7] }}{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Monthly #}
+  {% if bs.monthly | length > 1 %}
+  <div class="panel" style="margin-bottom:1rem">
+    <div class="panel-title">Monthly reading time</div>
+    <div class="bar-chart">
+      {% for m in bs.monthly %}
+      {% set px = ((m.hours / bs.max_monthly_hours) * 90) | int %}
+      <div class="bar-col">
+        <div class="bar" style="height:{{ px }}px;background:var(--role-supporting)"
+             title="{{ m.month }}: {{ (m.hours * 60) | mins_hm }}"></div>
+        {% set _mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+        <div class="bar-x-label">{{ _mn[m.month[5:7]|int - 1] }} {{ m.month[2:4] }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# By hour #}
+  <div class="panel" style="margin-bottom:1rem">
+    <div class="panel-title">Reading by hour of day</div>
+    <div class="bar-chart">
+      {% for h in bs.by_hour %}
+      {% set px = ((h.minutes / bs.max_hour_minutes) * 90) | int %}
+      <div class="bar-col">
+        <div class="bar" style="height:{{ px }}px;background:var(--success);opacity:0.7"
+             title="{{ h.hour }}:00 — {{ h.minutes | mins_hm }}"></div>
+        <div class="bar-x-label">{% if h.hour in [0, 6, 12, 18, 23] %}{{ h.hour }}{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem">Hours in UTC</div>
+  </div>
+
+  {# Reading calendar #}
+  <div class="panel" style="margin-bottom:1rem">
+    <div class="panel-title">Reading calendar</div>
+    <div class="book-modal-cal" id="cal-wrap-{{ loop.index }}">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calPrev('{{ username }}', {{ loop.index }})">‹</button>
+        <span id="cal-label-{{ loop.index }}" class="cal-month-label"></span>
+        <button class="cal-nav-btn" onclick="calNext('{{ username }}', {{ loop.index }})">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid-{{ loop.index }}"></div>
+      <div id="cal-nodata-{{ loop.index }}" style="display:none;text-align:center;color:var(--text-muted);font-size:0.78rem;padding:0.4rem 0 0">No reading this month</div>
+      <div id="cal-detail-{{ loop.index }}" class="cal-day-detail hidden"></div>
+    </div>
+  </div>
+
+</div>
+{% endfor %}
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ROOT = {{ root | tojson }};
+const BOOK_TITLE = {{ book.title | tojson }};
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const _calState = {};
+
+function minsHm(m) {
+  const t = Math.max(0, Math.round(m));
+  const h = Math.floor(t / 60), mins = t % 60;
+  if (h && mins) return h + 'h ' + mins + 'm';
+  if (h) return h + 'h';
+  return mins + 'm';
+}
+
+function calPrev(username, idx) {
+  const s = _calState[idx];
+  s.month--;
+  if (s.month < 1) { s.month = 12; s.year--; }
+  loadCal(username, idx);
+}
+
+function calNext(username, idx) {
+  const s = _calState[idx];
+  s.month++;
+  if (s.month > 12) { s.month = 1; s.year++; }
+  loadCal(username, idx);
+}
+
+async function loadCal(username, idx) {
+  const s = _calState[idx];
+  document.getElementById('cal-label-' + idx).textContent = MONTHS[s.month - 1] + ' ' + s.year;
+  document.getElementById('cal-grid-' + idx).innerHTML = '';
+  const nd = document.getElementById('cal-nodata-' + idx); if (nd) nd.style.display = 'none';
+  document.getElementById('cal-detail-' + idx).classList.add('hidden');
+
+  const url = ROOT + '/services/kostats/stats/' + encodeURIComponent(username) +
+    '/book-data?title=' + encodeURIComponent(BOOK_TITLE) +
+    '&year=' + s.year + '&month=' + s.month;
+
+  let calData = { days: {}, hours: {} };
+  try {
+    const resp = await fetch(url, { credentials: 'same-origin' });
+    if (resp.ok) calData = await resp.json();
+  } catch(e) {}
+  s.data = calData;
+  renderCal(idx);
+}
+
+function renderCal(idx) {
+  const s = _calState[idx];
+  const grid = document.getElementById('cal-grid-' + idx);
+  grid.innerHTML = '';
+
+  const daysInMonth = new Date(s.year, s.month, 0).getDate();
+  const firstDow    = new Date(s.year, s.month - 1, 1).getDay();
+  const dayMins = (s.data && s.data.days) ? s.data.days : {};
+  const vals = Object.values(dayMins).map(Number).filter(v => v > 0);
+  const maxMins = vals.length ? Math.max(...vals) : 1;
+
+  DOW.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-dow'; el.textContent = d; grid.appendChild(el);
+  });
+  for (let i = 0; i < firstDow; i++) {
+    const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const el = document.createElement('div');
+    const mins = Number(dayMins[d] || 0);
+    el.className = 'cal-day'; el.textContent = d;
+    if (mins > 0) {
+      const ratio = mins / maxMins;
+      if (ratio <= 0.25)      el.classList.add('cal-heat-1');
+      else if (ratio <= 0.50) el.classList.add('cal-heat-2');
+      else if (ratio <= 0.75) el.classList.add('cal-heat-3');
+      else                    el.classList.add('cal-heat-4');
+      el.classList.add('has-data');
+      el.title = minsHm(mins);
+      el.addEventListener('click', () => showDayDetail(idx, d, el));
+    }
+    grid.appendChild(el);
+  }
+  const trailing = 42 - firstDow - daysInMonth;
+  for (let i = 0; i < trailing; i++) {
+    const el = document.createElement('div'); el.className = 'cal-day empty'; grid.appendChild(el);
+  }
+  const nd = document.getElementById('cal-nodata-' + idx);
+  if (nd) nd.style.display = (!vals.length) ? '' : 'none';
+}
+
+function showDayDetail(idx, day, dayEl) {
+  document.querySelectorAll('#cal-grid-' + idx + ' .cal-day.selected').forEach(e => e.classList.remove('selected'));
+  dayEl.classList.add('selected');
+  const s = _calState[idx];
+  const detail = document.getElementById('cal-detail-' + idx);
+  const hourMap = ((s.data && s.data.hours) ? s.data.hours : {})[day] || {};
+  const entries = Object.entries(hourMap).map(([h, m]) => [parseInt(h), parseFloat(m)])
+    .filter(([,m]) => m > 0).sort((a, b) => a[0] - b[0]);
+  if (!entries.length) { detail.classList.add('hidden'); return; }
+  const maxMins = Math.max(...entries.map(([,m]) => m));
+  const dateStr = s.year + '-' + String(s.month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+  let html = '<div class="cal-day-detail-title">' + dateStr + '</div>';
+  entries.forEach(([h, m]) => {
+    const pct = Math.round(m / maxMins * 100);
+    html += `<div class="hour-row">
+      <span class="hour-label">${String(h).padStart(2,'0')}:00</span>
+      <div class="hour-bar-bg"><div class="hour-bar-fill" style="width:${pct}%"></div></div>
+      <span class="hour-mins">${minsHm(m)}</span>
+    </div>`;
+  });
+  detail.innerHTML = html;
+  detail.classList.remove('hidden');
+}
+
+// Initialise each calendar to last-read month (passed via data attributes)
+document.addEventListener('DOMContentLoaded', () => {
+  {% for username, bs in book_stats.items() %}
+  (function() {
+    const idx = {{ loop.index }};
+    const lastRead = {{ bs.book_stat.last_read | tojson }};
+    const base = lastRead ? new Date(lastRead) : new Date();
+    _calState[idx] = { year: base.getFullYear(), month: base.getMonth() + 1, data: {} };
+    loadCal({{ username | tojson }}, idx);
+  })();
+  {% endfor %}
+});
+</script>
+{% endblock %}

@@ -14,7 +14,7 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 from app.auth import require_ha_auth
 from app.config import get_settings
 from app.services.kolibrary import scheduler, storage, sync
-from app.tz import localtime_filter
+from app.tz import localtime_filter, mins_hm
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ _env = Environment(
     autoescape=True,
 )
 _env.filters["localtime"] = localtime_filter
+_env.filters["mins_hm"] = mins_hm
 _env.globals["version"] = __import__("os").getenv("KOSERVER_VERSION", "dev")
 templates = Jinja2Templates(env=_env)
 
@@ -119,8 +120,10 @@ async def library(
     if not device_id:
         books = _deduplicate_by_md5(books)
 
+    root = request.scope.get("root_path", "").rstrip("/")
     return templates.TemplateResponse("library.html", {
         "request": request,
+        "root": root,
         "devices": devices,
         "books": books,
         "selected_device": device_id,
@@ -144,6 +147,49 @@ async def serve_cover(
     if not cover_path.is_file():
         raise HTTPException(status_code=404)
     return FileResponse(str(cover_path))
+
+
+# ---------------------------------------------------------------------------
+# Book detail
+# ---------------------------------------------------------------------------
+
+@router.get("/books/{book_id}", response_class=HTMLResponse)
+async def book_detail(
+    book_id: int,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    book = storage.get_book_by_id(settings.kolibrary_db_path, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    # Gather per-user KoStats for this book title
+    book_stats: dict = {}
+    try:
+        from app.services.kostats import storage as kostats_storage
+        from app.services.kostats.stats_reader import get_book_detail_stats
+        read_pct = int(kostats_storage.get_setting(settings.kostats_db_path, "read_pct_threshold", "95"))
+        for user in kostats_storage.list_users(settings.kostats_db_path):
+            db = settings.kostats_dir / user.username / "statistics.sqlite3"
+            if db.is_file():
+                bs = get_book_detail_stats(
+                    db, book.title,
+                    kosync_db_path=settings.kosync_db_path,
+                    read_pct_threshold=read_pct,
+                )
+                if bs:
+                    book_stats[user.username] = bs
+    except Exception:
+        pass  # KoStats not configured — degrade gracefully
+
+    root = request.scope.get("root_path", "").rstrip("/")
+    return templates.TemplateResponse("book_detail.html", {
+        "request": request,
+        "book": book,
+        "book_stats": book_stats,
+        "root": root,
+    })
 
 
 # ---------------------------------------------------------------------------

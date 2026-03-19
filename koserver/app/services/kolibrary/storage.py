@@ -255,6 +255,17 @@ def list_sync_logs(db_path: Path, device_id: int, limit: int = 20) -> list[SyncL
 # Books
 # ---------------------------------------------------------------------------
 
+def get_book_by_id(db_path: Path, book_id: int) -> Optional[KoBook]:
+    conn = _connect(db_path)
+    row = conn.execute(
+        "SELECT b.*, d.name, d.friendly_name FROM kolibrary_books b "
+        "JOIN kolibrary_devices d ON d.id = b.device_id WHERE b.id = ?",
+        (book_id,),
+    ).fetchone()
+    conn.close()
+    return _row_to_book(row, row["friendly_name"] or row["name"]) if row else None
+
+
 def get_book_by_path(db_path: Path, device_id: int, file_path: str) -> Optional[KoBook]:
     conn = _connect(db_path)
     row = conn.execute(

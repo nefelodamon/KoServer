@@ -44,7 +44,9 @@
 {% if books %}
 <div class="book-grid">
   {% for b in books %}
-  <div class="book-card" title="{{ b.title }}{% if b.series %} ({{ b.series }}{% if b.series_index %} #{{ b.series_index | int }}{% endif %}){% endif %}">
+  <a class="book-card" href="{{ root }}/services/kolibrary/books/{{ b.id }}"
+     title="{{ b.title }}{% if b.series %} ({{ b.series }}{% if b.series_index %} #{{ b.series_index | int }}{% endif %}){% endif %}"
+     style="text-decoration:none;color:inherit">
 
     {# Cover #}
     <div class="book-cover-wrap">
@@ -86,7 +88,7 @@
       </div>
     </div>
 
-  </div>
+  </a>
   {% endfor %}
 </div>
 {% else %}
