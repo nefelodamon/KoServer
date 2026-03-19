@@ -91,6 +91,69 @@ async def serve_cover(
 # Sync API
 # ---------------------------------------------------------------------------
 
+@router.get("/devices/{device_id}/test-connection")
+async def test_connection(
+    device_id: int,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    import asyncio
+    import socket
+    settings = get_settings()
+    device = storage.get_device(settings.kolibrary_db_path, device_id)
+    if not device:
+        raise HTTPException(status_code=404)
+
+    steps = []
+
+    # Step 1: TCP socket connect
+    try:
+        loop = asyncio.get_event_loop()
+        await asyncio.wait_for(
+            loop.run_in_executor(None, lambda: socket.create_connection((device.host, device.port), timeout=5)),
+            timeout=6,
+        )
+        steps.append({"step": f"TCP {device.host}:{device.port}", "ok": True, "msg": "Connected"})
+    except Exception as e:
+        steps.append({"step": f"TCP {device.host}:{device.port}", "ok": False, "msg": str(e)})
+        return JSONResponse({"steps": steps, "success": False})
+
+    # Step 2: SSH handshake + auth
+    try:
+        password = storage.decrypt_password(settings.kolibrary_key_path, device.encrypted_password)
+        async with asyncssh.connect(
+            device.host, port=device.port, username=device.username,
+            password=password, known_hosts=None, connect_timeout=10,
+        ) as conn:
+            steps.append({"step": "SSH auth", "ok": True, "msg": f"Logged in as {device.username}"})
+
+            # Step 3: check books path exists
+            result = await conn.run(f'test -d {device.books_path} && echo EXISTS || echo MISSING', check=False)
+            exists = result.stdout.strip() == "EXISTS"
+            steps.append({
+                "step": f"Books path {device.books_path}",
+                "ok": exists,
+                "msg": "Directory exists" if exists else "Directory not found",
+            })
+
+            if exists:
+                # Step 4: quick count of .sdr dirs
+                result = await conn.run(
+                    f'timeout 10 find {device.books_path} -name "*.sdr" -type d 2>/dev/null | wc -l',
+                    check=False,
+                )
+                count = result.stdout.strip()
+                steps.append({"step": "Find .sdr dirs", "ok": True, "msg": f"{count} book(s) found"})
+
+    except asyncssh.PermissionDenied:
+        steps.append({"step": "SSH auth", "ok": False, "msg": "Permission denied — wrong username/password"})
+    except asyncssh.Error as e:
+        steps.append({"step": "SSH auth", "ok": False, "msg": str(e)})
+    except Exception as e:
+        steps.append({"step": "SSH", "ok": False, "msg": str(e)})
+
+    return JSONResponse({"steps": steps, "success": all(s["ok"] for s in steps)})
+
+
 @router.post("/devices/{device_id}/sync")
 async def trigger_sync(
     device_id: int,

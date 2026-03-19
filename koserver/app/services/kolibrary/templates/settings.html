@@ -81,6 +81,8 @@
       <div style="display:flex;gap:0.5rem;align-items:center">
         <button class="btn-restore" style="font-size:0.8rem"
                 onclick="triggerSync({{ device.id }}, this)">Sync now</button>
+        <button class="btn-icon" style="font-size:0.8rem" title="Test connection"
+                onclick="testConnection({{ device.id }}, this)">🔌 Test</button>
         <button class="btn-icon" title="Edit"
                 onclick="toggleEdit({{ device.id }})">✏️</button>
         <form method="post" action="{{ root }}/services/kolibrary/settings/delete-device/{{ device.id }}"
@@ -90,6 +92,9 @@
         </form>
       </div>
     </div>
+
+    {# Connection test results #}
+    <div id="test-result-{{ device.id }}" style="display:none;margin-top:0.5rem"></div>
 
     {# Live sync status #}
     <div id="sync-status-{{ device.id }}" class="sync-status-bar"
@@ -205,6 +210,30 @@
 function toggleEdit(deviceId) {
   const el = document.getElementById('edit-' + deviceId);
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function testConnection(deviceId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Testing…';
+  const root = {{ request.scope.get("root_path", "") | tojson }};
+  const el = document.getElementById('test-result-' + deviceId);
+  el.style.display = 'block';
+  el.innerHTML = '<span style="color:var(--text-muted);font-size:0.8rem">Testing…</span>';
+  try {
+    const resp = await fetch(`${root}/services/kolibrary/devices/${deviceId}/test-connection`, { credentials: 'same-origin' });
+    const data = await resp.json();
+    let html = '<div style="font-size:0.8rem;display:flex;flex-direction:column;gap:0.25rem;margin-top:0.25rem">';
+    for (const s of data.steps) {
+      const icon = s.ok ? '✅' : '❌';
+      html += `<div>${icon} <strong>${s.step}</strong> — ${s.msg}</div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<span style="color:var(--danger);font-size:0.8rem">❌ ${e}</span>`;
+  }
+  btn.disabled = false;
+  btn.textContent = '🔌 Test';
 }
 
 async function triggerSync(deviceId, btn) {
