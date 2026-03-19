@@ -1,5 +1,7 @@
 import logging
 import os
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
