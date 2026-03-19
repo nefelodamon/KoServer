@@ -59,14 +59,12 @@
   <div class="panel-title">Reading activity — last 30 days</div>
   <div class="bar-chart" style="height:120px">
     {% for d in stats.daily %}
+    {% set pct = ((d.minutes / stats.max_daily_minutes) * 100) | int %}
     <div class="bar-col">
-      <div class="bar"
-           style="height:{{ ((d.minutes / stats.max_daily_minutes) * 100) | int }}%"
-           title="{{ d.date }}: {{ d.minutes | round(0) | int }} min"></div>
+      <div style="flex:{{ 100 - pct }};min-height:0"></div>
+      <div class="bar" style="flex:{{ pct }}" title="{{ d.date }}: {{ d.minutes | round(0) | int }} min"></div>
       <div class="bar-x-label">
-        {% if loop.index == 1 or loop.index == 8 or loop.index == 15 or loop.index == 22 or loop.index == 30 %}
-          {{ d.date[5:] }}
-        {% endif %}
+        {% if loop.index in [1, 8, 15, 22, 30] %}{{ d.date[5:] }}{% endif %}
       </div>
     </div>
     {% endfor %}
@@ -78,17 +76,14 @@
   <div class="panel-title">Monthly reading time</div>
   <div class="bar-chart" style="height:100px">
     {% for m in stats.monthly %}
+    {% set pct = ((m.hours / stats.max_monthly_hours) * 100) | int %}
     <div class="bar-col">
-      <div class="bar"
-           style="height:{{ ((m.hours / stats.max_monthly_hours) * 100) | int }}%; background:var(--role-supporting)"
-           title="{{ m.month }}: {{ m.hours }}h"></div>
+      <div style="flex:{{ 100 - pct }};min-height:0"></div>
+      <div class="bar" style="flex:{{ pct }};background:var(--role-supporting)" title="{{ m.month }}: {{ m.hours }}h"></div>
       <div class="bar-x-label">{{ m.month[2:] }}</div>
     </div>
     {% endfor %}
   </div>
-  <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.5rem">
-    debug: max={{ stats.max_monthly_hours }}h — {% for m in stats.monthly %}{{ m.month }}:{{ m.hours }}h {% endfor %}
-  </p>
 </div>
 
 {# ── Two-column: Top books + By hour ── #}
@@ -127,13 +122,12 @@
     <div class="panel-title">Reading by hour of day</div>
     <div class="bar-chart" style="height:100px">
       {% for h in stats.by_hour %}
+      {% set pct = ((h.minutes / stats.max_hour_minutes) * 100) | int %}
       <div class="bar-col">
-        <div class="bar"
-             style="height:{{ ((h.minutes / stats.max_hour_minutes) * 100) | int }}%; background:var(--success); opacity:0.7"
+        <div style="flex:{{ 100 - pct }};min-height:0"></div>
+        <div class="bar" style="flex:{{ pct }};background:var(--success);opacity:0.7"
              title="{{ h.hour }}:00 — {{ h.minutes | round(0) | int }} min"></div>
-        <div class="bar-x-label">
-          {% if h.hour in [0, 6, 12, 18, 23] %}{{ h.hour }}{% endif %}
-        </div>
+        <div class="bar-x-label">{% if h.hour in [0, 6, 12, 18, 23] %}{{ h.hour }}{% endif %}</div>
       </div>
       {% endfor %}
     </div>
