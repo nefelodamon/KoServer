@@ -41,6 +41,17 @@ def set_current_tz(tz_name: str) -> None:
         pass
 
 
+def mins_hm(minutes: float) -> str:
+    """Format a duration in minutes as 'Xh Ym' (e.g. 90.5 → '1h 30m')."""
+    total = max(0, int(round(minutes)))
+    h, m = divmod(total, 60)
+    if h and m:
+        return f"{h}h {m}m"
+    if h:
+        return f"{h}h"
+    return f"{m}m"
+
+
 def localtime_filter(value: str) -> str:
     """Jinja2 filter: convert a UTC datetime string to the active timezone."""
     if not value:

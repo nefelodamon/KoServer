@@ -15,7 +15,7 @@ from app.config import get_settings
 from app.services.kostats import storage
 from app.services.kostats.models import UploadedFile
 from app.services.kostats.stats_reader import compute_stats
-from app.tz import localtime_filter
+from app.tz import localtime_filter, mins_hm
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ _env = Environment(
     autoescape=True,
 )
 _env.filters["localtime"] = localtime_filter
+_env.filters["mins_hm"] = mins_hm
 _env.globals["version"] = __import__("os").getenv("KOSERVER_VERSION", "dev")
 templates = Jinja2Templates(env=_env)
 

@@ -11,7 +11,7 @@ from app.auth import require_ha_auth
 from app.config import get_settings
 from app.services.kosync import storage
 from app.services.kosync.storage import ALLOW_REGISTRATION_KEY
-from app.tz import localtime_filter
+from app.tz import localtime_filter, mins_hm
 
 _SERVICE_TEMPLATES = Path(__file__).parent / "templates"
 _BASE_TEMPLATES = Path(__file__).parent.parent.parent / "templates"
@@ -24,6 +24,7 @@ _env = Environment(
     autoescape=True,
 )
 _env.filters["localtime"] = localtime_filter
+_env.filters["mins_hm"] = mins_hm
 _env.globals["version"] = __import__("os").getenv("KOSERVER_VERSION", "dev")
 templates = Jinja2Templates(env=_env)
 

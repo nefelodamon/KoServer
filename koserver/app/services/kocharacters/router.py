@@ -20,7 +20,7 @@ from app.config import get_settings
 from app.services.kocharacters import storage
 from app.services.kocharacters.storage import DEFAULT_THUMBNAIL_SIZE, THUMBNAIL_SIZE_KEY
 from app.services.kosync import storage as kosync_storage
-from app.tz import localtime_filter
+from app.tz import localtime_filter, mins_hm
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ _env = Environment(
     autoescape=True,
 )
 _env.filters["localtime"] = localtime_filter
+_env.filters["mins_hm"] = mins_hm
 _env.globals["version"] = __import__("os").getenv("KOSERVER_VERSION", "dev")
 templates = Jinja2Templates(env=_env)
 
