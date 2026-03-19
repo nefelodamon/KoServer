@@ -198,6 +198,24 @@ def finish_sync_log(db_path: Path, log_id: int, status: str,
     conn.close()
 
 
+def clear_sync_logs(db_path: Path, device_id: int) -> None:
+    conn = _connect(db_path)
+    conn.execute("DELETE FROM kolibrary_sync_log WHERE device_id = ?", (device_id,))
+    conn.commit()
+    conn.close()
+
+
+def mark_stale_running_logs(db_path: Path) -> None:
+    """On startup, any log still 'running' was interrupted by a restart."""
+    conn = _connect(db_path)
+    conn.execute(
+        "UPDATE kolibrary_sync_log SET status='interrupted', finished_at=datetime('now'), "
+        "message='Interrupted by server restart' WHERE status='running'"
+    )
+    conn.commit()
+    conn.close()
+
+
 def list_sync_logs(db_path: Path, device_id: int, limit: int = 20) -> list[SyncLog]:
     conn = _connect(db_path)
     rows = conn.execute(

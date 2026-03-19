@@ -156,8 +156,13 @@
     {% set device_logs = logs[device.id] %}
     {% if device_logs %}
     <details style="margin-top:0.75rem">
-      <summary style="font-size:0.8rem;cursor:pointer;color:var(--text-muted)">
-        Sync log ({{ device_logs | length }})
+      <summary style="font-size:0.8rem;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;gap:0.75rem">
+        <span>Sync log ({{ device_logs | length }})</span>
+        <form method="post" action="{{ root }}/services/kolibrary/settings/clear-log/{{ device.id }}"
+              style="display:inline" onclick="event.stopPropagation()"
+              onsubmit="return confirm('Clear all sync logs for {{ device.display_name }}?')">
+          <button type="submit" class="btn-danger" style="font-size:0.72rem;padding:0.1rem 0.5rem">Clear log</button>
+        </form>
       </summary>
       <table class="recycle-table" style="margin-top:0.5rem;font-size:0.78rem">
         <thead><tr><th>Started</th><th>Duration</th><th>Status</th><th>Added</th><th>Updated</th><th>Message</th></tr></thead>

@@ -190,6 +190,18 @@ async def update_device(
     return RedirectResponse(url=f"{root}/services/kolibrary/settings", status_code=303)
 
 
+@router.post("/settings/clear-log/{device_id}")
+async def clear_log(
+    device_id: int,
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    storage.clear_sync_logs(settings.kolibrary_db_path, device_id)
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kolibrary/settings", status_code=303)
+
+
 @router.post("/settings/delete-device/{device_id}")
 async def delete_device(
     device_id: int,

@@ -85,6 +85,8 @@ async def lifespan(app: FastAPI):
     await init_kosync_db(settings.kosync_db_path)
     await init_kostats_db(settings.kostats_db_path)
     await init_kolibrary_db(settings.kolibrary_db_path)
+    from app.services.kolibrary.storage import mark_stale_running_logs
+    mark_stale_running_logs(settings.kolibrary_db_path)
     # Load saved timezone
     saved_tz = get_setting(settings.kocharacters_db_path, TZ_KEY, "UTC")
     set_current_tz(saved_tz)
