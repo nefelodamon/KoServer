@@ -276,8 +276,16 @@ async def user_stats(
     if not db_path.is_file():
         raise HTTPException(status_code=404, detail="No statistics database found for this user")
     stats = compute_stats(db_path)
+    users = storage.list_users(settings.kostats_db_path)
+    stat = db_path.stat()
+    db_info = {
+        "path": str(db_path),
+        "size_mb": round(stat.st_size / 1024 / 1024, 2),
+        "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    }
     return templates.TemplateResponse(
-        "user_stats.html", {"request": request, "username": username, "stats": stats}
+        "user_stats.html",
+        {"request": request, "username": username, "stats": stats, "users": users, "db_info": db_info},
     )
 
 

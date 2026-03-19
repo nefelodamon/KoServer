@@ -2,6 +2,19 @@
 {% block title %}KoStats — {{ username }} Stats{% endblock %}
 {% block nav_kostats %}active{% endblock %}
 
+{% block nav_kostats_users %}
+<ul class="nav-sub">
+  {% for u in users %}
+  <li>
+    <a href="{{ root }}/services/kostats/stats/{{ u.username }}"
+       class="nav-link nav-sub {% if u.username == username %}active{% endif %}">
+      <span class="nav-icon">👤</span> {{ u.username }}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}
+
 {% block header_actions %}
 <a href="{{ root }}/services/kostats/settings" class="btn-icon" title="Settings">⚙️</a>
 {% endblock %}
@@ -173,5 +186,12 @@
   {% else %}
   <p class="empty-note">No data yet.</p>
   {% endif %}
+</div>
+
+{# ── DB info ── #}
+<div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border); font-size:0.75rem; color:var(--text-muted)">
+  <span>📁 {{ db_info.path }}</span>
+  <span style="margin-left:1.5rem">{{ db_info.size_mb }} MB</span>
+  <span style="margin-left:1.5rem">Modified: {{ db_info.modified }}</span>
 </div>
 {% endblock %}
