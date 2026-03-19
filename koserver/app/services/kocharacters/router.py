@@ -412,9 +412,10 @@ async def serve_thumbnail(
     thumb_path = settings.portraits_dir / book_id / "thumbnails" / safe_filename
     # Fall back to full-size if thumbnail not yet generated
     full_path = settings.portraits_dir / book_id / safe_filename
+    _NC = {"Cache-Control": "no-cache"}
     for path in (thumb_path, full_path):
         if path.exists() and path.is_file():
-            return FileResponse(str(path), media_type=_media_type(path))
+            return FileResponse(str(path), media_type=_media_type(path), headers=_NC)
     return Response(content=_placeholder_svg(), media_type="image/svg+xml")
 
 
@@ -429,7 +430,8 @@ async def serve_portrait(
     portrait_path = settings.portraits_dir / book_id / safe_filename
     if not portrait_path.exists() or not portrait_path.is_file():
         return Response(content=_placeholder_svg(), media_type="image/svg+xml")
-    return FileResponse(str(portrait_path), media_type=_media_type(portrait_path))
+    return FileResponse(str(portrait_path), media_type=_media_type(portrait_path),
+                        headers={"Cache-Control": "no-cache"})
 
 
 _MEDIA_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
