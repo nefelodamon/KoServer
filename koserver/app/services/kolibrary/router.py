@@ -120,6 +120,17 @@ async def library(
     if not device_id:
         books = _deduplicate_by_md5(books)
 
+    # Books that have characters in KoCharacters
+    kochar_book_ids: set[int] = set()
+    try:
+        from app.services.kocharacters import storage as kochar_storage
+        kc_titles, kc_md5s = kochar_storage.get_book_identifiers(settings.kocharacters_db_path)
+        for b in books:
+            if (b.md5 and b.md5 in kc_md5s) or b.title.lower().strip() in kc_titles:
+                kochar_book_ids.add(b.id)
+    except Exception:
+        pass
+
     root = request.scope.get("root_path", "").rstrip("/")
     return templates.TemplateResponse("library.html", {
         "request": request,
@@ -129,6 +140,7 @@ async def library(
         "selected_device": device_id,
         "search": search,
         "status_filter": status,
+        "kochar_book_ids": kochar_book_ids,
     })
 
 

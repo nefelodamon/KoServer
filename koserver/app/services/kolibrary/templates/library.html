@@ -61,6 +61,12 @@
       {# Device tag #}
       <span class="book-device-tag">{{ b.device_display_name }}</span>
 
+      {# KoCharacters badge #}
+      {% if b.id in kochar_book_ids %}
+      <span title="Characters available in KoCharacters"
+            style="position:absolute;top:0.35rem;right:0.35rem;font-size:0.9rem;line-height:1;background:rgba(0,0,0,0.55);border-radius:4px;padding:0.15rem 0.25rem">🎭</span>
+      {% endif %}
+
       {# Progress bar #}
       <div class="book-progress-bar">
         <div class="book-progress-fill" style="width:{{ 100 if b.status == 'complete' else (b.progress_pct * 100) | int }}%"></div>

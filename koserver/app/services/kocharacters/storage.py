@@ -457,6 +457,20 @@ def get_characters(db_path: Path, book_id: str) -> list[Character]:
     return [_row_to_character(r) for r in rows]
 
 
+def get_book_identifiers(db_path: Path) -> tuple[set[str], set[str]]:
+    """Return (titles_lower, partial_md5s) for all non-deleted KoCharacters books."""
+    if not db_path.is_file():
+        return set(), set()
+    conn = _connect(db_path)
+    rows = conn.execute(
+        "SELECT title, partial_md5 FROM books WHERE deleted_at IS NULL"
+    ).fetchall()
+    conn.close()
+    titles = {r["title"].lower().strip() for r in rows if r["title"]}
+    md5s = {r["partial_md5"] for r in rows if r["partial_md5"]}
+    return titles, md5s
+
+
 def find_book_id_for_library_book(db_path: Path, title: str, partial_md5: str = "") -> str | None:
     """Return the book_id of a non-deleted KoCharacters book matching md5 or title, or None."""
     if not db_path.is_file():
