@@ -35,6 +35,7 @@ class BookStat:
     started: str
     last_read: str
     status: str
+    days_read: int = 0
 
 
 @dataclass
@@ -118,7 +119,8 @@ def compute_stats(db_path: Path) -> UserStats:
                date(MIN(p.start_time), 'unixepoch') as started,
                date(MAX(p.start_time), 'unixepoch') as last_read,
                MAX(p.page) as max_page,
-               MAX(p.total_pages) as total_pages
+               MAX(p.total_pages) as total_pages,
+               COUNT(DISTINCT date(p.start_time, 'unixepoch')) as days_read
         FROM page_stat_data p JOIN book b ON b.id = p.id_book
         GROUP BY p.id_book
     """
@@ -133,6 +135,7 @@ def compute_stats(db_path: Path) -> UserStats:
             started=r["started"] or "",
             last_read=r["last_read"] or "",
             status="Finished" if pct >= 90 else "Reading",
+            days_read=r["days_read"] or 0,
         )
 
     def _merge_duplicates(books: list[BookStat]) -> list[BookStat]:
@@ -155,6 +158,7 @@ def compute_stats(db_path: Path) -> UserStats:
                 m.last_read = max(m.last_read, b.last_read) if m.last_read and b.last_read else (m.last_read or b.last_read)
                 if b.status == "Finished":
                     m.status = "Finished"
+                m.days_read += b.days_read
         return list(merged.values())
 
     # Top books by time spent
@@ -171,6 +175,7 @@ def compute_stats(db_path: Path) -> UserStats:
     ).fetchall()
     all_books = _merge_duplicates([_make_book_stat(r) for r in rows])
     all_books.sort(key=lambda b: b.last_read, reverse=True)
+    books_read = len(all_books)
 
     # By hour of day (UTC — server runs UTC)
     rows = conn.execute("""

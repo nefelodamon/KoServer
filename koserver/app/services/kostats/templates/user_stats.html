@@ -53,8 +53,17 @@
 
 {# ── Currently reading ── #}
 {% if stats.summary.current_book %}
-<div class="panel" style="margin-bottom:1.5rem">
-  <div class="panel-title">Currently reading</div>
+{% set cur_book_data = namespace(b=none) %}
+{% for b in stats.all_books %}{% if b.title == stats.summary.current_book and not cur_book_data.b %}{% set cur_book_data.b = b %}{% endif %}{% endfor %}
+<div class="panel currently-reading-panel" style="margin-bottom:1.5rem"
+     data-title="{{ stats.summary.current_book }}"
+     data-authors="{{ cur_book_data.b.authors if cur_book_data.b else '' }}"
+     data-status="{{ cur_book_data.b.status if cur_book_data.b else 'Reading' }}"
+     data-started="{{ cur_book_data.b.started if cur_book_data.b else '' }}"
+     data-lastread="{{ cur_book_data.b.last_read if cur_book_data.b else '' }}"
+     data-hours="{{ cur_book_data.b.hours if cur_book_data.b else '' }}"
+     data-pph="{{ cur_book_data.b.pages_per_hour if cur_book_data.b else '' }}">
+  <div class="panel-title">Currently reading <span style="font-size:0.7rem;color:var(--accent);margin-left:0.5rem">click to view calendar</span></div>
   <div style="display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap">
     <span style="font-size:1rem; font-weight:600">{{ stats.summary.current_book }}</span>
     <div class="progress-wrap" style="flex:1; min-width:200px">
@@ -125,7 +134,8 @@
         <th class="sortable" data-col="2">Started</th>
         <th class="sortable" data-col="3">Last read</th>
         <th class="sortable" data-col="4">Time</th>
-        <th class="sortable" data-col="5">pg/h</th>
+        <th class="sortable" data-col="5">Days read</th>
+        <th class="sortable" data-col="6">pg/h</th>
       </tr>
     </thead>
     <tbody>
@@ -139,6 +149,7 @@
         <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
         <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
         <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
+        <td data-val="{{ b.days_read }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.days_read }}</td>
         <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
       </tr>
     {% endfor %}
@@ -151,7 +162,18 @@
 
 {# ── All books ── #}
 <div class="panel" style="margin-top:1.5rem">
-  <div class="panel-title">All books ({{ stats.all_books | length }})</div>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:0.75rem">
+    <div class="panel-title" style="margin-bottom:0">All books (<span id="all-books-count">{{ stats.all_books | length }}</span> / {{ stats.all_books | length }})</div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+      <input id="all-books-search" type="search" placeholder="Search title or author…"
+             style="padding:0.35rem 0.65rem; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:0.82rem; width:200px; outline:none;">
+      <select id="all-books-status" class="form-select" style="width:auto; padding:0.35rem 0.65rem; font-size:0.82rem">
+        <option value="">All</option>
+        <option value="reading">Reading</option>
+        <option value="finished">Finished</option>
+      </select>
+    </div>
+  </div>
   {% if stats.all_books %}
   <table class="recycle-table sortable-table" id="all-books-table">
     <thead>
@@ -161,7 +183,8 @@
         <th class="sortable" data-col="2">Started</th>
         <th class="sortable" data-col="3">Last read</th>
         <th class="sortable" data-col="4">Time</th>
-        <th class="sortable" data-col="5">pg/h</th>
+        <th class="sortable" data-col="5">Days read</th>
+        <th class="sortable" data-col="6">pg/h</th>
       </tr>
     </thead>
     <tbody>
@@ -175,6 +198,7 @@
         <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
         <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
         <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
+        <td data-val="{{ b.days_read }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.days_read }}</td>
         <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
       </tr>
     {% endfor %}
@@ -209,6 +233,7 @@
         <button class="cal-nav-btn" id="cal-next">›</button>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
+      <div id="cal-no-data" style="display:none;text-align:center;color:var(--text-muted);font-size:0.78rem;padding:0.4rem 0 0">No reading this month</div>
       <div id="cal-day-detail" class="cal-day-detail hidden"></div>
     </div>
   </div>
@@ -237,7 +262,9 @@ document.querySelectorAll('.sortable-table').forEach(table => {
       headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
       th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
       const tbody = table.querySelector('tbody');
-      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const rows = Array.from(tbody.querySelectorAll('tr:not([style*="display: none"])')).concat(
+        Array.from(tbody.querySelectorAll('tr[style*="display: none"]'))
+      );
       rows.sort((a, b) => {
         const aCell = a.cells[col], bCell = b.cells[col];
         const aVal = aCell.dataset.val ?? aCell.textContent.trim();
@@ -250,6 +277,33 @@ document.querySelectorAll('.sortable-table').forEach(table => {
     });
   });
 });
+
+// ── All books filter ─────────────────────────────────────────────────────
+const allBooksSearch = document.getElementById('all-books-search');
+const allBooksStatus = document.getElementById('all-books-status');
+const allBooksCount  = document.getElementById('all-books-count');
+
+function filterAllBooks() {
+  const q      = (allBooksSearch.value || '').toLowerCase().trim();
+  const status = (allBooksStatus.value || '').toLowerCase();
+  const tbody  = document.querySelector('#all-books-table tbody');
+  if (!tbody) return;
+  let visible = 0;
+  tbody.querySelectorAll('tr').forEach(row => {
+    const title   = (row.dataset.title   || '').toLowerCase();
+    const authors = (row.dataset.authors || '').toLowerCase();
+    const rowStatus = (row.dataset.status || '').toLowerCase();
+    const matchText   = !q || title.includes(q) || authors.includes(q);
+    const matchStatus = !status || rowStatus === status;
+    const show = matchText && matchStatus;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  if (allBooksCount) allBooksCount.textContent = visible;
+}
+
+if (allBooksSearch) allBooksSearch.addEventListener('input', filterAllBooks);
+if (allBooksStatus) allBooksStatus.addEventListener('change', filterAllBooks);
 
 // ── Book detail modal ────────────────────────────────────────────────────
 const ROOT = '{{ root }}';
@@ -310,8 +364,9 @@ function closeModal() {
 async function loadCalendar() {
   document.getElementById('cal-month-label').textContent =
     MONTHS[calMonth - 1] + ' ' + calYear;
-  document.getElementById('cal-grid').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);font-size:0.8rem;padding:1rem">Loading…</div>';
+  document.getElementById('cal-grid').innerHTML = '';
   document.getElementById('cal-day-detail').classList.add('hidden');
+  const nd = document.getElementById('cal-no-data'); if (nd) nd.style.display = 'none';
 
   const url = ROOT + '/services/kostats/stats/' + encodeURIComponent(UNAME) +
     '/book-data?title=' + encodeURIComponent(activeTitle) +
@@ -345,17 +400,15 @@ function renderCalendar() {
   const vals = Object.values(dayMins).map(Number).filter(v => v > 0);
   const maxMins = vals.length ? Math.max(...vals) : 1;
 
-  // Show empty/error state (no DOW headers needed)
+  // Error banner above grid
   if (calData._error) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--danger);font-size:0.8rem;padding:1rem">Error loading data (${calData._error})</div>`;
-    return;
-  }
-  if (!vals.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);font-size:0.8rem;padding:1rem">No reading this month</div>';
-    return;
+    const err = document.createElement('div');
+    err.style.cssText = 'grid-column:1/-1;text-align:center;color:var(--danger);font-size:0.78rem;padding:0.4rem 0 0.6rem';
+    err.textContent = 'Error loading data (' + calData._error + ')';
+    grid.appendChild(err);
   }
 
-  // Day-of-week headers
+  // Day-of-week headers — always present
   DOW.forEach(d => {
     const el = document.createElement('div');
     el.className = 'cal-dow';
@@ -363,19 +416,19 @@ function renderCalendar() {
     grid.appendChild(el);
   });
 
-  // Empty cells before first day
+  // Leading empty cells
   for (let i = 0; i < firstDow; i++) {
     const el = document.createElement('div');
     el.className = 'cal-day empty';
     grid.appendChild(el);
   }
 
+  // Day cells
   for (let d = 1; d <= daysInMonth; d++) {
     const el = document.createElement('div');
     const mins = Number(dayMins[d] || 0);
     el.className = 'cal-day';
     el.textContent = d;
-
     if (mins > 0) {
       const ratio = mins / maxMins;
       if (ratio <= 0.25)      el.classList.add('cal-heat-1');
@@ -388,6 +441,18 @@ function renderCalendar() {
     }
     grid.appendChild(el);
   }
+
+  // Trailing empty cells — always fill to 6 rows (42 day cells total)
+  const trailing = 42 - firstDow - daysInMonth;
+  for (let i = 0; i < trailing; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+
+  // No-data note below the grid (outside grid container)
+  const noteEl = document.getElementById('cal-no-data');
+  if (noteEl) noteEl.style.display = (!vals.length && !calData._error) ? '' : 'none';
 }
 
 function showDayDetail(day, dayEl) {
@@ -425,10 +490,14 @@ function showDayDetail(day, dayEl) {
   detail.classList.remove('hidden');
 }
 
-// Wire up rows
+// Wire up book rows
 document.querySelectorAll('.book-row').forEach(row => {
   row.addEventListener('click', () => openModal(row));
 });
+
+// Wire up currently-reading panel
+const crPanel = document.querySelector('.currently-reading-panel');
+if (crPanel) crPanel.addEventListener('click', () => openModal(crPanel));
 
 closeBtn.addEventListener('click', closeModal);
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
