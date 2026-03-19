@@ -20,6 +20,10 @@ class Settings:
         self.kostats_db_path: Path = self.kostats_dir / "kostats.db"
         self.kosync_dir: Path = self.share_dir / "kosync"
         self.kosync_db_path: Path = self.kosync_dir / "kosync.db"
+        self.kolibrary_dir: Path = self.share_dir / "kolibrary"
+        self.kolibrary_db_path: Path = self.kolibrary_dir / "kolibrary.db"
+        self.kolibrary_covers_dir: Path = self.kolibrary_dir / "covers"
+        self.kolibrary_key_path: Path = self.data_dir / "kolibrary.key"
 
     @staticmethod
     def _load_options() -> dict:

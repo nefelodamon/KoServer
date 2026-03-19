@@ -23,6 +23,9 @@ from app.services.kocharacters import router as kocharacters_router
 from app.services.kocharacters.storage import init_db as init_kocharacters_db, get_setting, set_setting
 from app.services.kosync import router as kosync_router
 from app.services.kosync.storage import init_db as init_kosync_db
+from app.services.kolibrary import router as kolibrary_router
+from app.services.kolibrary import scheduler as kolibrary_scheduler
+from app.services.kolibrary.storage import init_db as init_kolibrary_db
 from app.services.kostats import router as kostats_router
 from app.services.kostats.storage import init_db as init_kostats_db
 from app.tz import COMMON_TIMEZONES, get_current_tz, localtime_filter, set_current_tz
@@ -76,12 +79,21 @@ async def lifespan(app: FastAPI):
     settings.portraits_dir.mkdir(parents=True, exist_ok=True)
     settings.kostats_dir.mkdir(parents=True, exist_ok=True)
     settings.kosync_dir.mkdir(parents=True, exist_ok=True)
+    settings.kolibrary_dir.mkdir(parents=True, exist_ok=True)
+    settings.kolibrary_covers_dir.mkdir(parents=True, exist_ok=True)
     await init_kocharacters_db(settings.kocharacters_db_path)
     await init_kosync_db(settings.kosync_db_path)
     await init_kostats_db(settings.kostats_db_path)
+    await init_kolibrary_db(settings.kolibrary_db_path)
     # Load saved timezone
     saved_tz = get_setting(settings.kocharacters_db_path, TZ_KEY, "UTC")
     set_current_tz(saved_tz)
+    import asyncio
+    asyncio.create_task(kolibrary_scheduler.run_scheduler(
+        settings.kolibrary_db_path,
+        settings.kolibrary_covers_dir,
+        settings.kolibrary_key_path,
+    ))
     yield
 
 
@@ -98,6 +110,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(kocharacters_router.router, prefix="/services/kocharacters")
 app.include_router(kosync_router.router, prefix="/services/kosync")
 app.include_router(kostats_router.router, prefix="/services/kostats")
+app.include_router(kolibrary_router.router, prefix="/services/kolibrary")
 
 
 @app.get("/health")

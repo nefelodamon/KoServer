@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}KoLibrary — Settings{% endblock %}
+{% block nav_kolibrary %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="{{ root }}/services/kolibrary" class="back-link">← KoLibrary</a>
+  <h1>KoLibrary Settings</h1>
+</div>
+
+{# ── Add device ── #}
+<section class="settings-section">
+  <h2>Add Device</h2>
+  <form method="post" action="{{ root }}/services/kolibrary/settings/create-device"
+        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.75rem;align-items:flex-end">
+    {% set f_style = "padding:0.4rem 0.6rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);width:100%" %}
+    <label class="form-field">
+      Device name *
+      <input type="text" name="name" required autocomplete="off" style="{{ f_style }}" placeholder="e.g. kindle">
+    </label>
+    <label class="form-field">
+      Friendly name
+      <input type="text" name="friendly_name" autocomplete="off" style="{{ f_style }}" placeholder="e.g. My Kindle">
+    </label>
+    <label class="form-field">
+      Host / IP *
+      <input type="text" name="host" required autocomplete="off" style="{{ f_style }}" placeholder="192.168.1.x">
+    </label>
+    <label class="form-field">
+      SSH port
+      <input type="number" name="port" value="22" min="1" max="65535" style="{{ f_style }}">
+    </label>
+    <label class="form-field">
+      Username *
+      <input type="text" name="username" required autocomplete="off" style="{{ f_style }}" placeholder="root">
+    </label>
+    <label class="form-field">
+      Password *
+      <input type="password" name="password" required autocomplete="new-password" style="{{ f_style }}">
+    </label>
+    <label class="form-field">
+      Books path
+      <input type="text" name="books_path" value="/mnt/us/documents" style="{{ f_style }}">
+    </label>
+    <label class="form-field">
+      Sync interval
+      <select name="sync_interval" style="{{ f_style }}">
+        {% for val, label in sync_intervals %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div style="align-self:flex-end">
+      <button type="submit" class="btn-restore">Add Device</button>
+    </div>
+  </form>
+</section>
+
+{# ── Device list ── #}
+{% if devices %}
+<section class="settings-section">
+  <div class="settings-section-header">
+    <h2>Devices</h2>
+    <span class="meta-badge">{{ devices | length }}</span>
+  </div>
+
+  {% for device in devices %}
+  {% set st = sync_status[device.id] %}
+  <div class="device-card" id="device-{{ device.id }}">
+
+    {# Header row #}
+    <div class="device-card-header">
+      <div>
+        <span class="device-card-name">{{ device.display_name }}</span>
+        {% if device.friendly_name and device.friendly_name != device.name %}
+        <span style="color:var(--text-muted);font-size:0.8rem">({{ device.name }})</span>
+        {% endif %}
+        <span class="meta-badge" style="margin-left:0.5rem">{{ device.host }}:{{ device.port }}</span>
+        <span class="meta-badge" style="margin-left:0.25rem">{{ device.sync_interval }}</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <button class="btn-restore" style="font-size:0.8rem"
+                onclick="triggerSync({{ device.id }}, this)">Sync now</button>
+        <button class="btn-icon" title="Edit"
+                onclick="toggleEdit({{ device.id }})">✏️</button>
+        <form method="post" action="{{ root }}/services/kolibrary/settings/delete-device/{{ device.id }}"
+              style="display:inline"
+              onsubmit="return confirm('Delete device &quot;{{ device.display_name }}&quot; and all its books?')">
+          <button type="submit" class="btn-danger" style="font-size:0.8rem">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    {# Live sync status #}
+    <div id="sync-status-{{ device.id }}" class="sync-status-bar"
+         style="display:{% if st.status in ('running','success','error') %}flex{% else %}none{% endif %}">
+      <span id="sync-icon-{{ device.id }}" class="sync-icon">
+        {% if st.status == 'running' %}⏳{% elif st.status == 'success' %}✅{% elif st.status == 'error' %}❌{% endif %}
+      </span>
+      <span id="sync-msg-{{ device.id }}">{{ st.message }}</span>
+      {% if st.books_added or st.books_updated %}
+      <span style="margin-left:auto;color:var(--text-muted);font-size:0.78rem">
+        +{{ st.books_added }} / ~{{ st.books_updated }}
+      </span>
+      {% endif %}
+    </div>
+
+    {# Last sync + meta #}
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem">
+      Last sync: {{ device.last_sync[:16] if device.last_sync else '—' }}
+      &nbsp;·&nbsp; User: {{ device.username }}
+      &nbsp;·&nbsp; Path: {{ device.books_path }}
+    </div>
+
+    {# Edit form (hidden by default) #}
+    <div id="edit-{{ device.id }}" style="display:none;margin-top:1rem">
+      <form method="post" action="{{ root }}/services/kolibrary/settings/update-device/{{ device.id }}"
+            style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.75rem;align-items:flex-end">
+        {% set f_style = "padding:0.4rem 0.6rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);width:100%" %}
+        <label class="form-field">Device name
+          <input type="text" name="name" value="{{ device.name }}" required style="{{ f_style }}">
+        </label>
+        <label class="form-field">Friendly name
+          <input type="text" name="friendly_name" value="{{ device.friendly_name }}" style="{{ f_style }}">
+        </label>
+        <label class="form-field">Host / IP
+          <input type="text" name="host" value="{{ device.host }}" required style="{{ f_style }}">
+        </label>
+        <label class="form-field">SSH port
+          <input type="number" name="port" value="{{ device.port }}" min="1" max="65535" style="{{ f_style }}">
+        </label>
+        <label class="form-field">Username
+          <input type="text" name="username" value="{{ device.username }}" required style="{{ f_style }}">
+        </label>
+        <label class="form-field">New password <span style="color:var(--text-muted)">(leave blank to keep)</span>
+          <input type="password" name="password" autocomplete="new-password" style="{{ f_style }}">
+        </label>
+        <label class="form-field">Books path
+          <input type="text" name="books_path" value="{{ device.books_path }}" style="{{ f_style }}">
+        </label>
+        <label class="form-field">Sync interval
+          <select name="sync_interval" style="{{ f_style }}">
+            {% for val, label in sync_intervals %}
+            <option value="{{ val }}" {% if val == device.sync_interval %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div style="align-self:flex-end;display:flex;gap:0.5rem">
+          <button type="submit" class="btn-restore">Save</button>
+          <button type="button" class="btn-icon" onclick="toggleEdit({{ device.id }})">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    {# Sync log #}
+    {% set device_logs = logs[device.id] %}
+    {% if device_logs %}
+    <details style="margin-top:0.75rem">
+      <summary style="font-size:0.8rem;cursor:pointer;color:var(--text-muted)">
+        Sync log ({{ device_logs | length }})
+      </summary>
+      <table class="recycle-table" style="margin-top:0.5rem;font-size:0.78rem">
+        <thead><tr><th>Started</th><th>Duration</th><th>Status</th><th>Added</th><th>Updated</th><th>Message</th></tr></thead>
+        <tbody>
+          {% for log in device_logs %}
+          <tr>
+            <td>{{ log.started_at[:16] }}</td>
+            <td>
+              {% if log.finished_at %}
+                {% set dur = ((log.finished_at | replace('T',' '))[:16]) %}
+                {{ log.finished_at[:16] }}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if log.status == 'success' %}<span style="color:#4caf50">✓ success</span>
+              {% elif log.status == 'error' %}<span style="color:#f44336">✗ error</span>
+              {% else %}<span style="color:var(--text-muted)">⏳ running</span>{% endif %}
+            </td>
+            <td>{{ log.books_added }}</td>
+            <td>{{ log.books_updated }}</td>
+            <td style="color:var(--text-muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                title="{{ log.message }}">{{ log.message }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<p class="empty-note">No devices yet. Add one above.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleEdit(deviceId) {
+  const el = document.getElementById('edit-' + deviceId);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function triggerSync(deviceId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  const root = {{ request.scope.get("root_path", "") | tojson }};
+  try {
+    await fetch(`${root}/services/kolibrary/devices/${deviceId}/sync`, { method: 'POST', credentials: 'same-origin' });
+    pollSyncStatus(deviceId, btn);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Sync now';
+  }
+}
+
+function pollSyncStatus(deviceId, btn) {
+  const root = {{ request.scope.get("root_path", "") | tojson }};
+  const bar   = document.getElementById('sync-status-' + deviceId);
+  const icon  = document.getElementById('sync-icon-'   + deviceId);
+  const msg   = document.getElementById('sync-msg-'    + deviceId);
+
+  bar.style.display = 'flex';
+
+  const timer = setInterval(async () => {
+    try {
+      const resp = await fetch(`${root}/services/kolibrary/devices/${deviceId}/sync-status`, { credentials: 'same-origin' });
+      const data = await resp.json();
+
+      msg.textContent  = data.message || '';
+      if (data.status === 'running') {
+        icon.textContent = '⏳';
+      } else if (data.status === 'success') {
+        icon.textContent = '✅';
+        clearInterval(timer);
+        btn.disabled = false;
+        btn.textContent = 'Sync now';
+      } else if (data.status === 'error') {
+        icon.textContent = '❌';
+        clearInterval(timer);
+        btn.disabled = false;
+        btn.textContent = 'Sync now';
+      }
+    } catch(e) {
+      clearInterval(timer);
+      btn.disabled = false;
+      btn.textContent = 'Sync now';
+    }
+  }, 1000);
+}
+</script>
+{% endblock %}

@@ -30,7 +30,11 @@
         </a>
         {% block nav_kostats_users %}{% endblock %}
       </li>
-      {# Future services inserted here #}
+      <li>
+        <a href="{{ root }}/services/kolibrary" class="nav-link {% block nav_kolibrary %}{% endblock %}">
+          <span class="nav-icon">🗂️</span> KoLibrary
+        </a>
+      </li>
     </ul>
     <div class="sidebar-footer">
       <a href="{{ root }}/settings" class="nav-link {% block nav_global_settings %}{% endblock %}">

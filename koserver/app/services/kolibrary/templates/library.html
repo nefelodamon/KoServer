@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}KoLibrary{% endblock %}
+{% block nav_kolibrary %}active{% endblock %}
+
+{% block header_actions %}
+<a href="{{ root }}/services/kolibrary/settings" class="btn-icon" title="Settings">⚙️</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>KoLibrary</h1>
+</div>
+
+{# ── Filters ── #}
+<form method="get" action="{{ root }}/services/kolibrary" class="lib-filters">
+  <input type="search" name="search" value="{{ search }}" placeholder="Search title or author…"
+         class="lib-search-input" autocomplete="off">
+
+  <select name="device_id" class="form-select" style="width:auto">
+    <option value="0" {% if selected_device == 0 %}selected{% endif %}>All devices</option>
+    {% for d in devices %}
+    <option value="{{ d.id }}" {% if selected_device == d.id %}selected{% endif %}>{{ d.display_name }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="status" class="form-select" style="width:auto">
+    <option value=""        {% if status_filter == '' %}selected{% endif %}>All</option>
+    <option value="reading" {% if status_filter == 'reading' %}selected{% endif %}>Reading</option>
+    <option value="finished"{% if status_filter == 'finished' %}selected{% endif %}>Finished</option>
+    <option value="unread"  {% if status_filter == 'unread' %}selected{% endif %}>Unread</option>
+  </select>
+
+  <button type="submit" class="btn-restore">Filter</button>
+</form>
+
+{# ── Book count ── #}
+<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">
+  {{ books | length }} book{{ 's' if books | length != 1 else '' }}
+</div>
+
+{# ── Grid ── #}
+{% if books %}
+<div class="book-grid">
+  {% for b in books %}
+  <div class="book-card" title="{{ b.title }}{% if b.series %} ({{ b.series }}{% if b.series_index %} #{{ b.series_index | int }}{% endif %}){% endif %}">
+
+    {# Cover #}
+    <div class="book-cover-wrap">
+      {% if b.cover_file %}
+      <img class="book-cover" src="{{ root }}/services/kolibrary/covers/{{ b.cover_file }}" alt="{{ b.title }}" loading="lazy">
+      {% else %}
+      <div class="book-cover book-cover-placeholder">
+        <span>{{ b.title[:2] | upper }}</span>
+      </div>
+      {% endif %}
+
+      {# Device tag #}
+      <span class="book-device-tag">{{ b.device_display_name }}</span>
+
+      {# Progress bar #}
+      <div class="book-progress-bar">
+        <div class="book-progress-fill" style="width:{{ (b.progress_pct * 100) | int }}%"></div>
+      </div>
+    </div>
+
+    {# Info #}
+    <div class="book-info">
+      <div class="book-title">{{ b.title }}</div>
+      {% if b.authors %}
+      <div class="book-author">{{ b.authors }}</div>
+      {% endif %}
+      <div class="book-progress-label">
+        {% set pct = (b.progress_pct * 100) | int %}
+        {% if pct >= 95 %}
+          <span class="status-badge finished">Finished</span>
+        {% elif pct > 0 %}
+          <span class="status-badge reading">{{ pct }}%</span>
+        {% else %}
+          <span class="status-badge unread">Unread</span>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-note">
+  {% if devices %}
+    No books found. Try syncing a device from <a href="{{ root }}/services/kolibrary/settings">Settings</a>.
+  {% else %}
+    No devices configured yet. <a href="{{ root }}/services/kolibrary/settings">Add a device</a> to get started.
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
