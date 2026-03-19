@@ -8,58 +8,112 @@
 
 <h2>Books ({{ books | length }})</h2>
 {% if books %}
-<table style="width:100%;border-collapse:collapse;margin-bottom:2rem;font-size:0.85rem">
+<div style="overflow-x:auto;margin-bottom:2rem">
+<table style="width:100%;border-collapse:collapse;font-size:0.8rem;white-space:nowrap">
   <thead>
     <tr style="text-align:left;border-bottom:2px solid #444">
-      <th style="padding:6px">book_id</th>
-      <th style="padding:6px">title</th>
-      <th style="padding:6px">characters</th>
-      <th style="padding:6px">uploaded_at</th>
+      <th style="padding:5px">id</th>
+      <th style="padding:5px">book_id</th>
+      <th style="padding:5px">title</th>
+      <th style="padding:5px">authors</th>
+      <th style="padding:5px">series</th>
+      <th style="padding:5px">series_index</th>
+      <th style="padding:5px">language</th>
+      <th style="padding:5px">total_pages</th>
+      <th style="padding:5px">pct_finished</th>
+      <th style="padding:5px">reading_status</th>
+      <th style="padding:5px">last_read</th>
+      <th style="padding:5px">highlights</th>
+      <th style="padding:5px">notes</th>
+      <th style="padding:5px">partial_md5</th>
+      <th style="padding:5px">cover_filename</th>
+      <th style="padding:5px">characters</th>
+      <th style="padding:5px">uploaded_at</th>
+      <th style="padding:5px">deleted_at</th>
     </tr>
   </thead>
   <tbody>
   {% for book in books %}
     <tr style="border-bottom:1px solid #333">
-      <td style="padding:6px;font-family:monospace">{{ book.book_id }}</td>
-      <td style="padding:6px">{{ book.title }}</td>
-      <td style="padding:6px">{{ book.character_count }}</td>
-      <td style="padding:6px">{{ book.uploaded_at }}</td>
+      <td style="padding:5px;font-family:monospace">{{ book.id }}</td>
+      <td style="padding:5px;font-family:monospace">{{ book.book_id }}</td>
+      <td style="padding:5px">{{ book.title }}</td>
+      <td style="padding:5px">{{ book.authors }}</td>
+      <td style="padding:5px">{{ book.series }}</td>
+      <td style="padding:5px">{{ book.series_index }}</td>
+      <td style="padding:5px">{{ book.language }}</td>
+      <td style="padding:5px">{{ book.total_pages }}</td>
+      <td style="padding:5px">{{ book.percent_finished }}</td>
+      <td style="padding:5px">{{ book.reading_status }}</td>
+      <td style="padding:5px">{{ book.last_read[:10] if book.last_read else '' }}</td>
+      <td style="padding:5px">{{ book.highlights }}</td>
+      <td style="padding:5px">{{ book.notes }}</td>
+      <td style="padding:5px;font-family:monospace">{{ book.partial_md5 }}</td>
+      <td style="padding:5px;font-family:monospace">{{ book.cover_filename }}</td>
+      <td style="padding:5px">{{ book.character_count }}</td>
+      <td style="padding:5px">{{ book.uploaded_at }}</td>
+      <td style="padding:5px;color:var(--text-muted)">{{ book.deleted_at or '' }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <p>No books in database.</p>
 {% endif %}
 
 {% for book in books %}
-<h2>Characters — {{ book.title }}</h2>
-{% set chars = all_characters[book.book_id] %}
+<h2 style="margin-top:2rem">Characters — {{ book.title }}</h2>
+{% set chars = all_characters.get(book.book_id, []) %}
 {% if chars %}
-<table style="width:100%;border-collapse:collapse;margin-bottom:2rem;font-size:0.8rem">
+<div style="overflow-x:auto;margin-bottom:2rem">
+<table style="width:100%;border-collapse:collapse;font-size:0.78rem;white-space:nowrap">
   <thead>
     <tr style="text-align:left;border-bottom:2px solid #444">
+      <th style="padding:4px">id</th>
+      <th style="padding:4px">character_id</th>
       <th style="padding:4px">name</th>
+      <th style="padding:4px">aliases</th>
       <th style="padding:4px">role</th>
-      <th style="padding:4px">unlocked</th>
+      <th style="padding:4px">occupation</th>
+      <th style="padding:4px">physical_description</th>
+      <th style="padding:4px">personality</th>
+      <th style="padding:4px">relationships</th>
+      <th style="padding:4px">first_appearance_quote</th>
+      <th style="padding:4px">user_notes</th>
       <th style="padding:4px">portrait_file</th>
+      <th style="padding:4px">source_page</th>
       <th style="padding:4px">first_seen_page</th>
+      <th style="padding:4px">unlocked</th>
+      <th style="padding:4px">needs_cleanup</th>
     </tr>
   </thead>
   <tbody>
   {% for char in chars %}
-    <tr style="border-bottom:1px solid #333">
+    <tr style="border-bottom:1px solid #333{% if char.needs_cleanup %};background:rgba(255,200,0,0.05){% endif %}">
+      <td style="padding:4px;font-family:monospace">{{ char.id }}</td>
+      <td style="padding:4px;font-family:monospace">{{ char.character_id }}</td>
       <td style="padding:4px">{{ char.name }}</td>
-      <td style="padding:4px">{{ char.role }}</td>
-      <td style="padding:4px">{{ char.unlocked }}</td>
+      <td style="padding:4px;color:var(--text-muted)">{{ char.aliases | join(', ') }}</td>
+      <td style="padding:4px"><span class="role-badge role-{{ char.role }}">{{ char.role }}</span></td>
+      <td style="padding:4px">{{ char.occupation }}</td>
+      <td style="padding:4px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="{{ char.physical_description }}">{{ char.physical_description[:80] }}{% if char.physical_description | length > 80 %}…{% endif %}</td>
+      <td style="padding:4px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="{{ char.personality }}">{{ char.personality[:80] }}{% if char.personality | length > 80 %}…{% endif %}</td>
+      <td style="padding:4px;color:var(--text-muted)">{{ char.relationships | length }} entries</td>
+      <td style="padding:4px;max-width:150px;overflow:hidden;text-overflow:ellipsis;color:var(--text-muted)" title="{{ char.first_appearance_quote }}">{{ char.first_appearance_quote[:60] }}{% if char.first_appearance_quote | length > 60 %}…{% endif %}</td>
+      <td style="padding:4px;color:var(--text-muted)">{{ '✓' if char.user_notes else '' }}</td>
       <td style="padding:4px;font-family:monospace">{{ char.portrait_file }}</td>
+      <td style="padding:4px">{{ char.source_page }}</td>
       <td style="padding:4px">{{ char.first_seen_page }}</td>
+      <td style="padding:4px">{{ '✓' if char.unlocked else '🔒' }}</td>
+      <td style="padding:4px">{{ '⚠' if char.needs_cleanup else '' }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
-<p>No characters for this book.</p>
+<p style="color:var(--text-muted)">No characters for this book.</p>
 {% endif %}
 {% endfor %}
 {% endblock %}
