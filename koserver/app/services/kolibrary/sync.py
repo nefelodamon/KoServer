@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import os
 import re
@@ -132,6 +133,88 @@ def parse_lua_settings(content: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Cover fetcher
+# ---------------------------------------------------------------------------
+
+def _parse_container_xml(content: str) -> Optional[str]:
+    """Extract OPF path from META-INF/container.xml."""
+    m = re.search(r'full-path\s*=\s*["\']([^"\']+\.opf)["\']', content, re.IGNORECASE)
+    return m.group(1) if m else None
+
+
+def _parse_opf_cover(content: str, opf_path: str) -> Optional[str]:
+    """Return the cover image path relative to the ZIP root, or None."""
+    opf_dir = opf_path.rsplit("/", 1)[0] if "/" in opf_path else ""
+
+    def resolve(href: str) -> str:
+        return f"{opf_dir}/{href}" if opf_dir else href
+
+    # EPUB3: <item properties="cover-image" href="..."/>
+    m = re.search(r'<item\b[^>]+\bproperties=["\']cover-image["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
+    if not m:
+        m = re.search(r'<item\b[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bproperties=["\']cover-image["\']', content, re.IGNORECASE)
+    if m:
+        return resolve(m.group(1))
+
+    # EPUB2: <meta name="cover" content="cover-id"/> + <item id="cover-id" href="..."/>
+    m = re.search(r'<meta\b[^>]+\bname=["\']cover["\'][^>]+\bcontent=["\']([^"\']+)["\']', content, re.IGNORECASE)
+    if not m:
+        m = re.search(r'<meta\b[^>]+\bcontent=["\']([^"\']+)["\'][^>]+\bname=["\']cover["\']', content, re.IGNORECASE)
+    if not m:
+        return None
+
+    cover_id = re.escape(m.group(1))
+    m = re.search(rf'<item\b[^>]+\bid=["\']' + cover_id + r'["\'][^>]+\bhref=["\']([^"\']+)["\']', content, re.IGNORECASE)
+    if not m:
+        m = re.search(rf'<item\b[^>]+\bhref=["\']([^"\']+)["\'][^>]+\bid=["\']' + cover_id + r'["\']', content, re.IGNORECASE)
+    if not m:
+        return None
+
+    return resolve(m.group(1))
+
+
+async def _fetch_cover(conn, book_path: str, covers_dir: Path, device_id: int) -> Optional[str]:
+    """Fetch cover image from an EPUB via SSH. Returns relative path or None."""
+    if not book_path.lower().endswith(".epub"):
+        return None
+    try:
+        # Step 1: container.xml → OPF path
+        r = await conn.run(f'unzip -p "{book_path}" META-INF/container.xml 2>/dev/null', check=False)
+        if not r.stdout:
+            return None
+        opf_path = _parse_container_xml(r.stdout)
+        if not opf_path:
+            return None
+
+        # Step 2: OPF → cover image zip path
+        r = await conn.run(f'unzip -p "{book_path}" "{opf_path}" 2>/dev/null', check=False)
+        if not r.stdout:
+            return None
+        cover_zip_path = _parse_opf_cover(r.stdout, opf_path)
+        if not cover_zip_path:
+            return None
+
+        # Step 3: extract cover image bytes
+        r = await conn.run(f'unzip -p "{book_path}" "{cover_zip_path}" 2>/dev/null', check=False, encoding=None)
+        if not r.stdout:
+            return None
+
+        ext = cover_zip_path.rsplit(".", 1)[-1].lower() if "." in cover_zip_path else "jpg"
+        if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+            ext = "jpg"
+
+        cover_name = hashlib.md5(f"{device_id}:{book_path}".encode()).hexdigest() + f".{ext}"
+        cover_subdir = covers_dir / str(device_id)
+        cover_subdir.mkdir(parents=True, exist_ok=True)
+        (cover_subdir / cover_name).write_bytes(r.stdout)
+        return f"{device_id}/{cover_name}"
+
+    except Exception as e:
+        logger.warning("KoLibrary: failed to fetch cover for %s: %s", book_path, e)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # SSH sync
 # ---------------------------------------------------------------------------
 
@@ -222,9 +305,9 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                 except (ValueError, TypeError):
                     continue
 
-                # Skip if unchanged
+                # Skip if unchanged and cover already exists
                 existing = storage.get_book_by_path(db_path, device_id, book_path)
-                if existing and existing.file_mtime == mtime:
+                if existing and existing.file_mtime == mtime and existing.cover_file:
                     continue
 
                 # Read lua file via cat
@@ -234,6 +317,12 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
 
                 try:
                     meta = parse_lua_settings(cat_result.stdout)
+
+                    # Fetch cover if not already stored
+                    cover_file = existing.cover_file if existing else None
+                    if cover_file is None:
+                        cover_file = await _fetch_cover(conn, book_path, covers_dir, device_id)
+
                     op = storage.upsert_book(
                         db_path, device_id, book_path, mtime,
                         title=meta["title"] or book_basename,
@@ -243,7 +332,7 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                         language=meta["language"],
                         pages=meta["pages"],
                         description=meta["description"],
-                        cover_file=None,
+                        cover_file=cover_file,
                         progress_pct=meta["percent_finished"],
                         md5=meta.get("md5") or None,
                         status=meta.get("status", ""),
@@ -266,6 +355,3 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
         storage.finish_sync_log(db_path, log_id, "error", 0, 0, msg)
         _status(msg, status="error")
         logger.error("KoLibrary: device %d SSH error: %s", device_id, e)
-
-
-# Keep placeholder so covers_dir arg stays valid for future use
