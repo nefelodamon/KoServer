@@ -86,6 +86,9 @@
     </div>
     {% endfor %}
   </div>
+  <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.5rem">
+    debug: max={{ stats.max_monthly_hours }}h — {% for m in stats.monthly %}{{ m.month }}:{{ m.hours }}h {% endfor %}
+  </p>
 </div>
 
 {# ── Two-column: Top books + By hour ── #}
