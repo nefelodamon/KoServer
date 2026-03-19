@@ -148,7 +148,7 @@
         <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.started | localtime }}</td>
         <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.last_read | localtime }}</td>
         <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
-        <td data-val="{{ b.days_read }}" style="color:var(--text-muted)">{{ b.days_read }}</td>
+        <td data-val="{{ b.days_read }}" style="color:var(--text-muted)">{{ b.days_read if b.days_read else '—' }}</td>
         <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted)">{{ b.pages_per_hour }}</td>
       </tr>
     {% endfor %}
@@ -196,7 +196,7 @@
         <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.started | localtime }}</td>
         <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted)">{{ b.last_read | localtime }}</td>
         <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
-        <td data-val="{{ b.days_read }}" style="color:var(--text-muted)">{{ b.days_read }}</td>
+        <td data-val="{{ b.days_read }}" style="color:var(--text-muted)">{{ b.days_read if b.days_read else '—' }}</td>
         <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted)">{{ b.pages_per_hour }}</td>
       </tr>
     {% endfor %}
