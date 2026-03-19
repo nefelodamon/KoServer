@@ -28,7 +28,7 @@
 {# ── Summary cards ── #}
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-value">{{ stats.summary.total_hours }}h</div>
+    <div class="stat-value">{{ (stats.summary.total_hours * 60) | mins_hm }}</div>
     <div class="stat-label">Total read</div>
   </div>
   <div class="stat-card">
