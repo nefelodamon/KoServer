@@ -13,6 +13,7 @@ def main():
         "--port", "8099",
         "--ssl-certfile", settings.ssl_certificate,
         "--ssl-keyfile", settings.ssl_key,
+        "--log-level", "info",
     ]
     os.execv(sys.executable, args)
 
