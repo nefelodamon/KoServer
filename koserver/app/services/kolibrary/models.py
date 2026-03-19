@@ -10,6 +10,7 @@ class KoLibraryDevice:
     host: str
     port: int
     username: str
+    encrypted_password: str
     books_path: str
     sync_interval: str  # manual, hourly, 6h, daily, weekly
     last_sync: Optional[str]

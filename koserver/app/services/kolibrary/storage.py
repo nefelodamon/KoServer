@@ -165,6 +165,7 @@ def _row_to_device(r) -> KoLibraryDevice:
     return KoLibraryDevice(
         id=r["id"], name=r["name"], friendly_name=r["friendly_name"] or "",
         host=r["host"], port=r["port"], username=r["username"],
+        encrypted_password=r["encrypted_password"] or "",
         books_path=r["books_path"], sync_interval=r["sync_interval"],
         last_sync=r["last_sync"], created_at=r["created_at"],
     )
