@@ -135,8 +135,17 @@ async def dashboard(
     settings = get_settings()
     users = storage.list_users(settings.kosync_db_path)
     all_progress = storage.list_all_progress(settings.kosync_db_path)
+    progress_by_user: dict = {}
+    for p in all_progress:
+        progress_by_user.setdefault(p.username, []).append(p)
+    root = request.scope.get("root_path", "").rstrip("/")
     return templates.TemplateResponse(
-        "dashboard.html", {"request": request, "users": users, "all_progress": all_progress}
+        "dashboard.html", {
+            "request": request,
+            "root": root,
+            "users": users,
+            "progress_by_user": progress_by_user,
+        }
     )
 
 

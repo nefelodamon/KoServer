@@ -9,28 +9,51 @@
 {% block content %}
 <div class="page-header">
   <h1>KoSync</h1>
-  <span class="book-count">{{ users | length }} user{{ 's' if users | length != 1 }}</span>
 </div>
 
 {% if users %}
-<table class="recycle-table" style="margin-bottom: 2.5rem">
-  <thead>
-    <tr>
-      <th>Username</th>
-      <th>Documents</th>
-      <th>Last sync</th>
-    </tr>
-  </thead>
-  <tbody>
   {% for user in users %}
-    <tr>
-      <td><a href="{{ root }}/services/kosync/users/{{ user.username }}">{{ user.username }}</a></td>
-      <td>{{ user.document_count }}</td>
-      <td>{{ user.last_sync[:16] if user.last_sync else '—' }}</td>
-    </tr>
+  <div style="margin-bottom:2.5rem">
+    <div style="display:flex;align-items:baseline;gap:0.75rem;margin-bottom:0.75rem">
+      <h2 style="font-size:1.05rem;font-weight:600;margin:0">{{ user.username }}</h2>
+      <span style="font-size:0.8rem;color:var(--text-muted)">
+        {{ user.document_count }} document{{ 's' if user.document_count != 1 }}
+        {% if user.last_sync %}· last sync {{ user.last_sync[:16] }}{% endif %}
+      </span>
+    </div>
+
+    {% set entries = progress_by_user.get(user.username, []) %}
+    {% if entries %}
+    <table class="recycle-table">
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Progress</th>
+          <th>Device</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in entries %}
+        <tr>
+          <td><span class="doc-name" title="{{ p.document }}">{{ p.document.split('/')[-1] or p.document }}</span></td>
+          <td>
+            <div class="progress-wrap">
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:{{ [p.percentage * 100, 100] | min | int }}%"></div></div>
+              <span class="progress-pct">{{ (p.percentage * 100) | round(1) }}%</span>
+            </div>
+          </td>
+          <td style="font-size:0.85rem;color:var(--text-muted)">{{ p.device or '—' }}</td>
+          <td style="font-size:0.82rem;color:var(--text-muted)">{{ p.updated_at | localtime if p.updated_at else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:0.85rem;color:var(--text-muted)">No sync data yet.</p>
+    {% endif %}
+  </div>
   {% endfor %}
-  </tbody>
-</table>
 {% else %}
 <div class="empty-state">
   <div class="empty-icon">📡</div>
@@ -38,36 +61,5 @@
   <p>Configure KOReader to sync to this server and register an account.</p>
   <code class="upload-hint">{{ request.url.scheme }}://{{ request.headers.get('host', '') }}/services/kosync</code>
 </div>
-{% endif %}
-
-{% if all_progress %}
-<h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem; color:var(--text-muted)">Sync data</h2>
-<table class="recycle-table">
-  <thead>
-    <tr>
-      <th>User</th>
-      <th>Document</th>
-      <th>Progress</th>
-      <th>Device</th>
-      <th>Updated</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for p in all_progress %}
-    <tr>
-      <td><a href="{{ root }}/services/kosync/users/{{ p.username }}">{{ p.username }}</a></td>
-      <td><span class="doc-name" title="{{ p.document }}">{{ p.document.split('/')[-1] or p.document }}</span></td>
-      <td>
-        <div class="progress-wrap">
-          <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:{{ [p.percentage * 100, 100] | min | int }}%"></div></div>
-          <span class="progress-pct">{{ (p.percentage * 100) | round(1) }}%</span>
-        </div>
-      </td>
-      <td style="font-size:0.85rem; color:var(--text-muted)">{{ p.device or '—' }}</td>
-      <td style="font-size:0.82rem; color:var(--text-muted)">{{ p.updated_at | localtime if p.updated_at else '—' }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
 {% endif %}
 {% endblock %}
