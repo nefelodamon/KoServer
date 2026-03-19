@@ -177,30 +177,39 @@ def _parse_opf_cover(content: str, opf_path: str) -> Optional[str]:
 async def _fetch_cover(conn, book_path: str, covers_dir: Path, device_id: int) -> Optional[str]:
     """Fetch cover image from an EPUB via SSH. Returns relative path or None."""
     if not book_path.lower().endswith(".epub"):
+        logger.debug("KoLibrary: cover skip (not epub): %s", book_path)
         return None
     try:
         # Step 1: container.xml → OPF path
         r = await conn.run(f'unzip -p "{book_path}" META-INF/container.xml 2>/dev/null', check=False)
         if not r.stdout:
+            logger.warning("KoLibrary: cover step1 empty for %s", book_path)
             return None
         opf_path = _parse_container_xml(r.stdout)
         if not opf_path:
+            logger.warning("KoLibrary: cover step1 no OPF path in container.xml for %s", book_path)
             return None
+        logger.debug("KoLibrary: cover step1 OPF=%s for %s", opf_path, book_path)
 
         # Step 2: OPF → cover image zip path
         r = await conn.run(f'unzip -p "{book_path}" "{opf_path}" 2>/dev/null', check=False)
         if not r.stdout:
+            logger.warning("KoLibrary: cover step2 empty OPF for %s", book_path)
             return None
         cover_zip_path = _parse_opf_cover(r.stdout, opf_path)
         if not cover_zip_path:
+            logger.warning("KoLibrary: cover step2 no cover href in OPF for %s", book_path)
             return None
+        logger.debug("KoLibrary: cover step2 cover_zip_path=%s for %s", cover_zip_path, book_path)
 
         # Step 3: extract cover image as base64 to avoid binary corruption over SSH
         r = await conn.run(f'unzip -p "{book_path}" "{cover_zip_path}" 2>/dev/null | base64', check=False)
         if not r.stdout or not r.stdout.strip():
+            logger.warning("KoLibrary: cover step3 empty base64 for %s (cover_zip_path=%s)", book_path, cover_zip_path)
             return None
         image_bytes = base64.b64decode(r.stdout.strip())
         if not image_bytes:
+            logger.warning("KoLibrary: cover step3 zero bytes after decode for %s", book_path)
             return None
 
         ext = cover_zip_path.rsplit(".", 1)[-1].lower() if "." in cover_zip_path else "jpg"
@@ -211,11 +220,11 @@ async def _fetch_cover(conn, book_path: str, covers_dir: Path, device_id: int) -
         cover_subdir = covers_dir / str(device_id)
         cover_subdir.mkdir(parents=True, exist_ok=True)
         (cover_subdir / cover_name).write_bytes(image_bytes)
-        logger.info("KoLibrary: saved cover %s", cover_name)
+        logger.info("KoLibrary: saved cover %s (%d bytes)", cover_name, len(image_bytes))
         return f"{device_id}/{cover_name}"
 
     except Exception as e:
-        logger.warning("KoLibrary: failed to fetch cover for %s: %s", book_path, e)
+        logger.warning("KoLibrary: cover fetch failed for %s: %s", book_path, e, exc_info=True)
         return None
 
 
@@ -326,7 +335,10 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                     # Fetch cover if not already stored
                     cover_file = existing.cover_file if existing else None
                     if cover_file is None:
+                        logger.info("KoLibrary: fetching cover for %s", book_path)
                         cover_file = await _fetch_cover(conn, book_path, covers_dir, device_id)
+                    else:
+                        logger.debug("KoLibrary: cover already stored for %s", book_path)
 
                     op = storage.upsert_book(
                         db_path, device_id, book_path, mtime,
