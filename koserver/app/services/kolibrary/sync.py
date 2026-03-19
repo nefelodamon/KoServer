@@ -178,17 +178,14 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
         ) as conn:
             _status("Finding books…")
 
-            result = await asyncio.wait_for(
-                conn.run(
-                    f'find {device.books_path} -name "*.sdr" -type d 2>/dev/null',
-                    check=False,
-                ),
-                timeout=60,
+            result = await conn.run(
+                f'timeout 60 find {device.books_path} -name "*.sdr" -type d 2>/dev/null',
+                check=False,
             )
-            if result.returncode not in (0, 1) or (not result.stdout and result.stderr):
-                logger.warning("KoLibrary: find stderr: %s", result.stderr)
+            if result.stderr:
+                logger.warning("KoLibrary: find stderr: %s", result.stderr[:300])
             sdr_dirs = [l.strip() for l in result.stdout.splitlines() if l.strip()]
-            logger.info("KoLibrary: find returned %d dirs, stderr=%r", len(sdr_dirs), result.stderr[:200] if result.stderr else "")
+            logger.info("KoLibrary: device %d — found %d .sdr dirs", device_id, len(sdr_dirs))
             total = len(sdr_dirs)
             logger.info("KoLibrary: device %d — found %d .sdr dirs", device_id, total)
 
@@ -273,11 +270,6 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
             _status(msg, added, updated, status="success")
             logger.info("KoLibrary: device %d sync complete — %s", device_id, msg)
 
-    except asyncio.TimeoutError:
-        msg = "Timed out — check that the books path exists and is accessible"
-        storage.finish_sync_log(db_path, log_id, "error", 0, 0, msg)
-        _status(msg, status="error")
-        logger.error("KoLibrary: device %d timed out during find", device_id)
     except (asyncssh.Error, OSError, TimeoutError) as e:
         msg = str(e)
         storage.finish_sync_log(db_path, log_id, "error", 0, 0, msg)
