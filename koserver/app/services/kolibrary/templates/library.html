@@ -61,7 +61,7 @@
 
       {# Progress bar #}
       <div class="book-progress-bar">
-        <div class="book-progress-fill" style="width:{{ (b.progress_pct * 100) | int }}%"></div>
+        <div class="book-progress-fill" style="width:{{ 100 if b.status == 'complete' else (b.progress_pct * 100) | int }}%"></div>
       </div>
     </div>
 
