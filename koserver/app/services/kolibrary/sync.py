@@ -483,7 +483,14 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                 check=False,
             )
             epub_paths = [l.strip() for l in epub_result.stdout.splitlines() if l.strip()]
-            sdr_book_paths = {sdr_dir[:-4] for sdr_dir in sdr_dirs}
+            # sdr dirs may be named BookName.sdr OR BookName.epub.sdr depending on device;
+            # include both forms so the filter works either way
+            sdr_book_paths: set[str] = set()
+            for _sdr in sdr_dirs:
+                _bp = _sdr[:-4]
+                sdr_book_paths.add(_bp)
+                if not _bp.lower().endswith(".epub"):
+                    sdr_book_paths.add(_bp + ".epub")
             untracked_epubs = [p for p in epub_paths if p not in sdr_book_paths]
             logger.info(
                 "KoLibrary: device %d — %d EPUBs total, %d untracked",
@@ -505,8 +512,13 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                     continue
 
                 existing = storage.get_book_by_path(db_path, device_id, epub_path)
+                # Phase 1 may have stored the path without .epub extension; check that too
+                if existing is None and epub_path.lower().endswith(".epub"):
+                    existing = storage.get_book_by_path(db_path, device_id, epub_path[:-5])
                 if existing and existing.file_mtime == mtime and existing.cover_file:
                     continue
+                # Don't create a duplicate record — reuse the path already in the DB if found
+                effective_path = existing.file_path if existing else epub_path
 
                 try:
                     existing_cover = existing.cover_file if existing else None
@@ -514,7 +526,7 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                         conn, epub_path, covers_dir, device_id, existing_cover
                     )
                     op = storage.upsert_book(
-                        db_path, device_id, epub_path, mtime,
+                        db_path, device_id, effective_path, mtime,
                         title=meta["title"] or book_basename,
                         authors=meta["authors"],
                         series=meta["series"],
