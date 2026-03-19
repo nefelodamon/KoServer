@@ -59,17 +59,26 @@
 </div>
 {% endif %}
 
+{% macro collapsible(content, limit=300) %}
+{% if content | length > limit %}
+<span class="clamp-text">{{ content[:limit] }}<span class="clamp-ellipsis">…</span><span class="clamp-rest" style="display:none">{{ content[limit:] }}</span></span>
+<button class="expand-btn" onclick="toggleClamp(this)">More…</button>
+{% else %}
+{{ content }}
+{% endif %}
+{% endmacro %}
+
 {% if char.physical_description %}
 <div class="detail-section" style="margin-top:1.5rem">
   <h4>Appearance</h4>
-  <p>{{ char.physical_description }}</p>
+  <p>{{ collapsible(char.physical_description) }}</p>
 </div>
 {% endif %}
 
 {% if char.personality %}
 <div class="detail-section" style="margin-top:1rem">
   <h4>Personality</h4>
-  <p>{{ char.personality }}</p>
+  <p>{{ collapsible(char.personality) }}</p>
 </div>
 {% endif %}
 
@@ -78,7 +87,7 @@
   <h4>Relationships</h4>
   <ul class="relationship-list">
     {% for rel in char.relationships %}
-    <li>{{ rel }}</li>
+    <li>{{ collapsible(rel, 150) }}</li>
     {% endfor %}
   </ul>
 </div>
@@ -87,14 +96,14 @@
 {% if char.first_appearance_quote %}
 <div class="detail-section" style="margin-top:1rem">
   <h4>First appearance</h4>
-  <blockquote class="appearance-quote">{{ char.first_appearance_quote }}</blockquote>
+  <blockquote class="appearance-quote">{{ collapsible(char.first_appearance_quote) }}</blockquote>
 </div>
 {% endif %}
 
 {% if char.user_notes %}
 <div class="detail-section user-notes" style="margin-top:1rem">
   <h4>Your notes</h4>
-  <p>{{ char.user_notes }}</p>
+  <p>{{ collapsible(char.user_notes) }}</p>
 </div>
 {% endif %}
 
@@ -115,5 +124,15 @@ function closeLightbox() {
   document.getElementById('lightbox').style.display = 'none';
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+function toggleClamp(btn) {
+  const span = btn.previousElementSibling;
+  const rest = span.querySelector('.clamp-rest');
+  const ellipsis = span.querySelector('.clamp-ellipsis');
+  const expanded = rest.style.display !== 'none';
+  rest.style.display = expanded ? 'none' : 'inline';
+  ellipsis.style.display = expanded ? 'inline' : 'none';
+  btn.textContent = expanded ? 'More…' : 'Less';
+}
 </script>
 {% endblock %}
