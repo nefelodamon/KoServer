@@ -125,27 +125,38 @@ def compute_stats(db_path: Path) -> UserStats:
         GROUP BY p.id_book
     """
 
-    # Compute distinct reading days per book in Python to avoid SQLite type/arithmetic
-    # ambiguity. The calendar endpoint already proves start_time values are valid
-    # Unix timestamps when compared as integers — we do the same here.
+    # Compute distinct reading days per (title, authors) key in Python.
+    # Group by the same key used for deduplication so duplicate book entries
+    # automatically union their day-sets rather than double-counting shared days.
+    _book_keys: dict[int, tuple] = {}
+    for _row in conn.execute(
+        "SELECT id, title, COALESCE(authors, '') as authors FROM book"
+    ).fetchall():
+        _book_keys[_row["id"]] = (
+            _row["title"].lower().strip(),
+            _row["authors"].lower().strip(),
+        )
+
     _raw_times = conn.execute(
         "SELECT id_book, start_time FROM page_stat_data WHERE start_time IS NOT NULL"
     ).fetchall()
-    _day_sets: dict[int, set] = {}
+    _day_sets_by_key: dict[tuple, set] = {}
     for _row in _raw_times:
         try:
             ts = int(_row["start_time"])
             if ts > 86400:  # exclude 0 / epoch-zero sentinel values
-                bid = _row["id_book"]
-                if bid not in _day_sets:
-                    _day_sets[bid] = set()
-                _day_sets[bid].add(ts // 86400)
+                key = _book_keys.get(_row["id_book"])
+                if key:
+                    if key not in _day_sets_by_key:
+                        _day_sets_by_key[key] = set()
+                    _day_sets_by_key[key].add(ts // 86400)
         except (TypeError, ValueError):
             pass
-    _days_by_id: dict[int, int] = {k: len(v) for k, v in _day_sets.items()}
+    _days_by_key: dict[tuple, int] = {k: len(v) for k, v in _day_sets_by_key.items()}
 
     def _make_book_stat(r) -> BookStat:
         pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
+        key = (r["title"].lower().strip(), (r["authors"] or "").lower().strip())
         return BookStat(
             title=r["title"],
             authors=r["authors"] or "",
@@ -154,7 +165,7 @@ def compute_stats(db_path: Path) -> UserStats:
             started=r["started"] or "",
             last_read=r["last_read"] or "",
             status="Finished" if pct >= 90 else "Reading",
-            days_read=_days_by_id.get(r["book_id"], 0),
+            days_read=_days_by_key.get(key, 0),
         )
 
     def _merge_duplicates(books: list[BookStat]) -> list[BookStat]:
@@ -178,7 +189,7 @@ def compute_stats(db_path: Path) -> UserStats:
                 m.last_read = max(m.last_read, b.last_read) if m.last_read and b.last_read else (m.last_read or b.last_read)
                 if b.status == "Finished":
                     m.status = "Finished"
-                m.days_read += b.days_read
+                # days_read already reflects the unioned set for this key; keep first value
         return list(merged.values())
 
     # Top books by time spent
@@ -189,19 +200,13 @@ def compute_stats(db_path: Path) -> UserStats:
     top_books.sort(key=lambda b: b.hours, reverse=True)
     top_books = top_books[:10]
 
-    # All books (computed before syncing days_read back to top_books)
+    # All books
     rows = conn.execute(
         _BOOK_QUERY + " ORDER BY last_read DESC"
     ).fetchall()
     all_books = _merge_duplicates([_make_book_stat(r) for r in rows])
     all_books.sort(key=lambda b: b.last_read, reverse=True)
     books_read = len(all_books)
-
-    # Sync days_read from all_books (full merge) into top_books
-    _all_days = {(b.title.lower().strip(), b.authors.lower().strip()): b.days_read for b in all_books}
-    for b in top_books:
-        key = (b.title.lower().strip(), b.authors.lower().strip())
-        b.days_read = _all_days.get(key, b.days_read)
 
     # By hour of day (UTC — server runs UTC)
     rows = conn.execute("""
