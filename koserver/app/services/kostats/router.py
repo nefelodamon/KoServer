@@ -30,6 +30,7 @@ _env = Environment(
     autoescape=True,
 )
 _env.filters["localtime"] = localtime_filter
+_env.globals["version"] = __import__("os").getenv("KOSERVER_VERSION", "dev")
 templates = Jinja2Templates(env=_env)
 
 router = APIRouter()

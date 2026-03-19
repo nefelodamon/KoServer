@@ -36,6 +36,7 @@ TZ_KEY = "timezone"
 
 _main_env = Environment(loader=FileSystemLoader(str(_BASE_TEMPLATES)), autoescape=True)
 _main_env.filters["localtime"] = localtime_filter
+_main_env.globals["version"] = VERSION
 _main_templates = Jinja2Templates(env=_main_env)
 
 
