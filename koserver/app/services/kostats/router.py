@@ -287,7 +287,8 @@ async def user_stats(
     db_path = settings.kostats_dir / username / "statistics.sqlite3"
     if not db_path.is_file():
         raise HTTPException(status_code=404, detail="No statistics database found for this user")
-    stats = compute_stats(db_path, kosync_db_path=settings.kosync_db_path)
+    read_pct = int(storage.get_setting(settings.kostats_db_path, "read_pct_threshold", "95"))
+    stats = compute_stats(db_path, kosync_db_path=settings.kosync_db_path, read_pct_threshold=read_pct)
     users = storage.list_users(settings.kostats_db_path)
     stat = db_path.stat()
     db_info = {
@@ -370,9 +371,28 @@ async def settings_page(
 ):
     settings = get_settings()
     users = storage.list_users(settings.kostats_db_path)
+    read_pct = int(storage.get_setting(settings.kostats_db_path, "read_pct_threshold", "95"))
+    kosync_available = settings.kosync_db_path.is_file()
     return templates.TemplateResponse(
-        "settings.html", {"request": request, "users": users}
+        "settings.html",
+        {"request": request, "users": users, "read_pct": read_pct, "kosync_available": kosync_available},
     )
+
+
+@router.post("/settings/update-read-pct")
+async def update_read_pct(
+    request: Request,
+    _: Annotated[str, Depends(require_ha_auth)],
+):
+    settings = get_settings()
+    form = await request.form()
+    try:
+        val = max(1, min(100, int(form.get("read_pct_threshold", 95))))
+    except (ValueError, TypeError):
+        val = 95
+    storage.set_setting(settings.kostats_db_path, "read_pct_threshold", str(val))
+    root = request.scope.get("root_path", "").rstrip("/")
+    return RedirectResponse(url=f"{root}/services/kostats/settings", status_code=303)
 
 
 @router.post("/settings/create-user")

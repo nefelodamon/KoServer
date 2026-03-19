@@ -9,6 +9,27 @@
 </div>
 
 <section class="settings-section">
+  <h2>Reading Status</h2>
+  <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+    {% if kosync_available %}
+    KoSync database found — book status is determined by KoSync presence (books in KoSync are <em>Reading</em>, others are <em>Finished</em>).
+    The percentage threshold below is used as fallback only if KoSync becomes unavailable.
+    {% else %}
+    No KoSync database found — book status is determined by read percentage threshold.
+    {% endif %}
+  </p>
+  <form method="post" action="{{ root }}/services/kostats/settings/update-read-pct"
+        style="display:flex;gap:0.75rem;align-items:flex-end">
+    <label style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.9rem">
+      Finished threshold (% of book read)
+      <input type="number" name="read_pct_threshold" min="1" max="100" value="{{ read_pct }}"
+             style="width:80px;padding:0.4rem 0.6rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+    </label>
+    <button type="submit" class="btn-restore">Save</button>
+  </form>
+</section>
+
+<section class="settings-section">
   <h2>Add User</h2>
   <form method="post" action="{{ root }}/services/kostats/settings/create-user"
         style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end">

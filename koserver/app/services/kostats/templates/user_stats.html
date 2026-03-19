@@ -242,6 +242,14 @@
   <span>📁 {{ db_info.path }}</span>
   <span style="margin-left:1.5rem">{{ db_info.size_mb }} MB</span>
   <span style="margin-left:1.5rem">Modified: {{ db_info.modified }}</span>
+  <span style="margin-left:1.5rem">
+    Reading status:
+    {% if stats.status_source == "kosync" %}
+      <strong style="color:var(--accent)">KoSync</strong>
+    {% else %}
+      Read percentage ({{ stats.status_source.split(':')[1] }}%)
+    {% endif %}
+  </span>
 </div>
 {% endblock %}
 

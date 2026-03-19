@@ -40,6 +40,10 @@ async def init_db(db_path: Path) -> None:
             created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
             last_upload   TEXT    DEFAULT NULL
         );
+        CREATE TABLE IF NOT EXISTS kostats_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
     """)
     # Migration: add password_salt to existing databases
     try:
@@ -47,6 +51,24 @@ async def init_db(db_path: Path) -> None:
         conn.commit()
     except sqlite3.OperationalError:
         pass  # Column already exists
+    conn.commit()
+    conn.close()
+
+
+def get_setting(db_path: Path, key: str, default: str = "") -> str:
+    conn = _connect(db_path)
+    row = conn.execute("SELECT value FROM kostats_settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+
+def set_setting(db_path: Path, key: str, value: str) -> None:
+    conn = _connect(db_path)
+    conn.execute(
+        "INSERT INTO kostats_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
     conn.commit()
     conn.close()
 

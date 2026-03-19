@@ -55,9 +55,14 @@ class UserStats:
     all_books: list[BookStat]
     by_hour: list[HourStat]
     max_hour_minutes: float
+    status_source: str = "pct:95"  # "kosync" or "pct:<n>"
 
 
-def compute_stats(db_path: Path, kosync_db_path: Path | None = None) -> UserStats:
+def compute_stats(
+    db_path: Path,
+    kosync_db_path: Path | None = None,
+    read_pct_threshold: int = 95,
+) -> UserStats:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
 
@@ -73,6 +78,8 @@ def compute_stats(db_path: Path, kosync_db_path: Path | None = None) -> UserStat
             kc.close()
         except Exception:
             _kosync_reading = None
+
+    status_source = "kosync" if _kosync_reading is not None else f"pct:{read_pct_threshold}"
 
     # Totals
     r = conn.execute("""
@@ -176,7 +183,7 @@ def compute_stats(db_path: Path, kosync_db_path: Path | None = None) -> UserStat
             status = "Reading" if (md5 and md5 in _kosync_reading) else "Finished"
         else:
             pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
-            status = "Finished" if pct >= 95 else "Reading"
+            status = "Finished" if pct >= read_pct_threshold else "Reading"
         return BookStat(
             title=r["title"],
             authors=r["authors"] or "",
@@ -257,4 +264,5 @@ def compute_stats(db_path: Path, kosync_db_path: Path | None = None) -> UserStat
         all_books=all_books,
         by_hour=by_hour,
         max_hour_minutes=max_hour,
+        status_source=status_source,
     )
