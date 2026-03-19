@@ -114,39 +114,63 @@ def compute_stats(db_path: Path) -> UserStats:
     _BOOK_QUERY = """
         SELECT b.title, COALESCE(b.authors, '') as authors,
                SUM(p.duration) / 3600.0 as hrs,
-               COUNT(*) * 1.0 / (SUM(p.duration) / 3600.0) as speed,
+               COUNT(*) * 1.0 / NULLIF(SUM(p.duration) / 3600.0, 0) as speed,
                date(MIN(p.start_time), 'unixepoch') as started,
                date(MAX(p.start_time), 'unixepoch') as last_read,
                MAX(p.page) as max_page,
-               p.total_pages
+               MAX(p.total_pages) as total_pages
         FROM page_stat_data p JOIN book b ON b.id = p.id_book
         GROUP BY p.id_book
     """
 
     def _make_book_stat(r) -> BookStat:
         pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
-        status = "Finished" if pct >= 90 else "Reading"
         return BookStat(
             title=r["title"],
-            authors=r["authors"],
-            hours=round(r["hrs"], 1),
-            pages_per_hour=round(r["speed"], 1) if r["hrs"] else 0,
+            authors=r["authors"] or "",
+            hours=round(r["hrs"] or 0, 1),
+            pages_per_hour=round(r["speed"] or 0, 1),
             started=r["started"] or "",
             last_read=r["last_read"] or "",
-            status=status,
+            status="Finished" if pct >= 90 else "Reading",
         )
+
+    def _merge_duplicates(books: list[BookStat]) -> list[BookStat]:
+        """Merge entries with the same title+authors, summing time and recalculating speed."""
+        merged: dict[tuple, BookStat] = {}
+        for b in books:
+            key = (b.title.lower().strip(), b.authors.lower().strip())
+            if key not in merged:
+                merged[key] = BookStat(
+                    title=b.title, authors=b.authors,
+                    hours=b.hours, pages_per_hour=b.pages_per_hour,
+                    started=b.started, last_read=b.last_read, status=b.status,
+                )
+            else:
+                m = merged[key]
+                total_pages = m.pages_per_hour * m.hours + b.pages_per_hour * b.hours
+                m.hours = round(m.hours + b.hours, 1)
+                m.pages_per_hour = round(total_pages / m.hours, 1) if m.hours else 0
+                m.started = min(m.started, b.started) if m.started and b.started else (m.started or b.started)
+                m.last_read = max(m.last_read, b.last_read) if m.last_read and b.last_read else (m.last_read or b.last_read)
+                if b.status == "Finished":
+                    m.status = "Finished"
+        return list(merged.values())
 
     # Top books by time spent
     rows = conn.execute(
-        _BOOK_QUERY + " HAVING hrs > 0.25 AND b.pages > 50 ORDER BY hrs DESC LIMIT 8"
+        _BOOK_QUERY + " HAVING hrs > 0.25 AND b.pages > 50 ORDER BY hrs DESC LIMIT 20"
     ).fetchall()
-    top_books = [_make_book_stat(r) for r in rows]
+    top_books = _merge_duplicates([_make_book_stat(r) for r in rows])
+    top_books.sort(key=lambda b: b.hours, reverse=True)
+    top_books = top_books[:8]
 
     # All books
     rows = conn.execute(
         _BOOK_QUERY + " ORDER BY last_read DESC"
     ).fetchall()
-    all_books = [_make_book_stat(r) for r in rows]
+    all_books = _merge_duplicates([_make_book_stat(r) for r in rows])
+    all_books.sort(key=lambda b: b.last_read, reverse=True)
 
     # By hour of day (UTC — server runs UTC)
     rows = conn.execute("""

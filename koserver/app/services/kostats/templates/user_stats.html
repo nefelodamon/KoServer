@@ -97,74 +97,71 @@
   </div>
 </div>
 
-{# ── Two-column: Top books + By hour ── #}
-<div class="panel-row">
-
-  <div class="panel">
-    <div class="panel-title">Top books by time</div>
-    {% if stats.top_books %}
-    <table class="recycle-table">
-      <thead>
-        <tr>
-          <th>Book</th>
-          <th>Status</th>
-          <th>Started</th>
-          <th>Last read</th>
-          <th>Time</th>
-          <th>pg/h</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for b in stats.top_books %}
-        <tr>
-          <td>
-            <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
-            {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
-          </td>
-          <td><span class="meta-badge">{{ b.status }}</span></td>
-          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
-          <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
-          <td style="white-space:nowrap">{{ b.hours }}h</td>
-          <td style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="empty-note">No data yet.</p>
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <div class="panel-title">Reading by hour of day</div>
-    <div class="bar-chart">
-      {% for h in stats.by_hour %}
-      {% set px = ((h.minutes / stats.max_hour_minutes) * 90) | int %}
-      <div class="bar-col">
-        <div class="bar" style="height:{{ px }}px;background:var(--success);opacity:0.7"
-             title="{{ h.hour }}:00 — {{ h.minutes | round(0) | int }} min"></div>
-        <div class="bar-x-label">{% if h.hour in [0, 6, 12, 18, 23] %}{{ h.hour }}{% endif %}</div>
-      </div>
-      {% endfor %}
+{# ── Reading by hour of day ── #}
+<div class="panel">
+  <div class="panel-title">Reading by hour of day</div>
+  <div class="bar-chart">
+    {% for h in stats.by_hour %}
+    {% set px = ((h.minutes / stats.max_hour_minutes) * 90) | int %}
+    <div class="bar-col">
+      <div class="bar" style="height:{{ px }}px;background:var(--success);opacity:0.7"
+           title="{{ h.hour }}:00 — {{ h.minutes | round(0) | int }} min"></div>
+      <div class="bar-x-label">{% if h.hour in [0, 6, 12, 18, 23] %}{{ h.hour }}{% endif %}</div>
     </div>
-    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem">Hours in UTC</div>
+    {% endfor %}
   </div>
+  <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem">Hours in UTC</div>
+</div>
 
+{# ── Top books by time ── #}
+<div class="panel">
+  <div class="panel-title">Top books by time</div>
+  {% if stats.top_books %}
+  <table class="recycle-table sortable-table" id="top-books-table">
+    <thead>
+      <tr>
+        <th class="sortable" data-col="0">Book</th>
+        <th class="sortable" data-col="1">Status</th>
+        <th class="sortable" data-col="2">Started</th>
+        <th class="sortable" data-col="3">Last read</th>
+        <th class="sortable" data-col="4">Time</th>
+        <th class="sortable" data-col="5">pg/h</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for b in stats.top_books %}
+      <tr>
+        <td>
+          <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
+          {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
+        </td>
+        <td data-val="{{ b.status }}"><span class="meta-badge status-{{ b.status | lower }}">{{ b.status }}</span></td>
+        <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
+        <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
+        <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
+        <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-note">No data yet.</p>
+  {% endif %}
 </div>
 
 {# ── All books ── #}
 <div class="panel" style="margin-top:1.5rem">
   <div class="panel-title">All books ({{ stats.all_books | length }})</div>
   {% if stats.all_books %}
-  <table class="recycle-table">
+  <table class="recycle-table sortable-table" id="all-books-table">
     <thead>
       <tr>
-        <th>Book</th>
-        <th>Status</th>
-        <th>Started</th>
-        <th>Last read</th>
-        <th>Time</th>
-        <th>pg/h</th>
+        <th class="sortable" data-col="0">Book</th>
+        <th class="sortable" data-col="1">Status</th>
+        <th class="sortable" data-col="2">Started</th>
+        <th class="sortable" data-col="3">Last read</th>
+        <th class="sortable" data-col="4">Time</th>
+        <th class="sortable" data-col="5">pg/h</th>
       </tr>
     </thead>
     <tbody>
@@ -174,11 +171,11 @@
           <div style="font-weight:500; font-size:0.88rem">{{ b.title }}</div>
           {% if b.authors %}<div style="font-size:0.78rem; color:var(--text-muted)">{{ b.authors }}</div>{% endif %}
         </td>
-        <td><span class="meta-badge">{{ b.status }}</span></td>
-        <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started }}</td>
-        <td style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read }}</td>
-        <td style="white-space:nowrap">{{ b.hours }}h</td>
-        <td style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
+        <td data-val="{{ b.status }}"><span class="meta-badge status-{{ b.status | lower }}">{{ b.status }}</span></td>
+        <td data-val="{{ b.started }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.started | localtime }}</td>
+        <td data-val="{{ b.last_read }}" style="white-space:nowrap; color:var(--text-muted); font-size:0.82rem">{{ b.last_read | localtime }}</td>
+        <td data-val="{{ b.hours }}" style="white-space:nowrap">{{ b.hours }}h</td>
+        <td data-val="{{ b.pages_per_hour }}" style="color:var(--text-muted); font-size:0.85rem">{{ b.pages_per_hour }}</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -194,4 +191,39 @@
   <span style="margin-left:1.5rem">{{ db_info.size_mb }} MB</span>
   <span style="margin-left:1.5rem">Modified: {{ db_info.modified }}</span>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.sortable-table').forEach(table => {
+  const headers = table.querySelectorAll('th.sortable');
+  let sortCol = -1, sortAsc = true;
+
+  headers.forEach(th => {
+    th.style.cursor = 'pointer';
+    th.title = 'Click to sort';
+    th.addEventListener('click', () => {
+      const col = parseInt(th.dataset.col);
+      if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
+      headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+      th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+
+      const tbody = table.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort((a, b) => {
+        const aCell = a.cells[col];
+        const bCell = b.cells[col];
+        const aVal = aCell.dataset.val ?? aCell.textContent.trim();
+        const bVal = bCell.dataset.val ?? bCell.textContent.trim();
+        const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+        const cmp = (!isNaN(aNum) && !isNaN(bNum))
+          ? aNum - bNum
+          : aVal.localeCompare(bVal);
+        return sortAsc ? cmp : -cmp;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+});
+</script>
 {% endblock %}
