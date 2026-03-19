@@ -263,6 +263,11 @@ async def dashboard(
         user_files[user.username] = _list_files(d) if d.exists() else []
         user.file_count = len(user_files[user.username])
         has_stats[user.username] = (d / "statistics.sqlite3").is_file()
+    # Redirect to first user with stats
+    root = request.scope.get("root_path", "").rstrip("/")
+    for user in users:
+        if has_stats[user.username]:
+            return RedirectResponse(url=f"{root}/services/kostats/stats/{user.username}", status_code=302)
     return templates.TemplateResponse(
         "dashboard.html",
         {"request": request, "users": users, "user_files": user_files, "has_stats": has_stats},
