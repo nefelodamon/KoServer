@@ -195,7 +195,7 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
 
                 _status(
                     f"[{idx}/{total}] {book_basename}",
-                    books_added=added, books_updated=updated,
+                    added=added, updated=updated,
                 )
 
                 # Find metadata lua file via ls (no SFTP needed)
