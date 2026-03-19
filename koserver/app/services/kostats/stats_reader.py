@@ -125,15 +125,24 @@ def compute_stats(db_path: Path) -> UserStats:
         GROUP BY p.id_book
     """
 
-    # Dedicated days-read query: same epoch-division approach used by the calendar endpoint,
-    # run as a standalone query so it isn't affected by the complex GROUP BY context.
-    _days_rows = conn.execute("""
-        SELECT id_book, COUNT(DISTINCT CAST(start_time / 86400 AS INTEGER)) as dr
-        FROM page_stat_data
-        WHERE start_time > 0
-        GROUP BY id_book
-    """).fetchall()
-    _days_by_id: dict[int, int] = {r["id_book"]: (r["dr"] or 0) for r in _days_rows}
+    # Compute distinct reading days per book in Python to avoid SQLite type/arithmetic
+    # ambiguity. The calendar endpoint already proves start_time values are valid
+    # Unix timestamps when compared as integers — we do the same here.
+    _raw_times = conn.execute(
+        "SELECT id_book, start_time FROM page_stat_data WHERE start_time IS NOT NULL"
+    ).fetchall()
+    _day_sets: dict[int, set] = {}
+    for _row in _raw_times:
+        try:
+            ts = int(_row["start_time"])
+            if ts > 86400:  # exclude 0 / epoch-zero sentinel values
+                bid = _row["id_book"]
+                if bid not in _day_sets:
+                    _day_sets[bid] = set()
+                _day_sets[bid].add(ts // 86400)
+        except (TypeError, ValueError):
+            pass
+    _days_by_id: dict[int, int] = {k: len(v) for k, v in _day_sets.items()}
 
     def _make_book_stat(r) -> BookStat:
         pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
