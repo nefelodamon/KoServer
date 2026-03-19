@@ -57,9 +57,22 @@ class UserStats:
     max_hour_minutes: float
 
 
-def compute_stats(db_path: Path) -> UserStats:
+def compute_stats(db_path: Path, kosync_db_path: Path | None = None) -> UserStats:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
+
+    # Load kosync in-progress MD5 set: presence = Reading, absence = Finished
+    _kosync_reading: set[str] | None = None
+    _kosync_path = kosync_db_path
+    if _kosync_path and _kosync_path.is_file():
+        try:
+            kc = sqlite3.connect(str(_kosync_path))
+            _kosync_reading = {
+                r[0] for r in kc.execute("SELECT document FROM kosync_progress").fetchall()
+            }
+            kc.close()
+        except Exception:
+            _kosync_reading = None
 
     # Totals
     r = conn.execute("""
@@ -120,7 +133,8 @@ def compute_stats(db_path: Path) -> UserStats:
                date(MAX(p.start_time), 'unixepoch') as last_read,
                MAX(p.page) as max_page,
                MAX(p.total_pages) as total_pages,
-               p.id_book as book_id
+               p.id_book as book_id,
+               b.md5 as md5
         FROM page_stat_data p JOIN book b ON b.id = p.id_book
         GROUP BY p.id_book
     """
@@ -155,8 +169,14 @@ def compute_stats(db_path: Path) -> UserStats:
     _days_by_key: dict[tuple, int] = {k: len(v) for k, v in _day_sets_by_key.items()}
 
     def _make_book_stat(r) -> BookStat:
-        pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
         key = (r["title"].lower().strip(), (r["authors"] or "").lower().strip())
+        if _kosync_reading is not None:
+            # book md5 present in kosync → still being read; absent → finished
+            md5 = r["md5"] if "md5" in r.keys() else None
+            status = "Reading" if (md5 and md5 in _kosync_reading) else "Finished"
+        else:
+            pct = (r["max_page"] / r["total_pages"] * 100) if r["total_pages"] else 0
+            status = "Finished" if pct >= 95 else "Reading"
         return BookStat(
             title=r["title"],
             authors=r["authors"] or "",
@@ -164,7 +184,7 @@ def compute_stats(db_path: Path) -> UserStats:
             pages_per_hour=round(r["speed"] or 0, 1),
             started=r["started"] or "",
             last_read=r["last_read"] or "",
-            status="Finished" if pct >= 90 else "Reading",
+            status=status,
             days_read=_days_by_key.get(key, 0),
         )
 

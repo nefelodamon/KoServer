@@ -287,7 +287,7 @@ async def user_stats(
     db_path = settings.kostats_dir / username / "statistics.sqlite3"
     if not db_path.is_file():
         raise HTTPException(status_code=404, detail="No statistics database found for this user")
-    stats = compute_stats(db_path)
+    stats = compute_stats(db_path, kosync_db_path=settings.kosync_db_path)
     users = storage.list_users(settings.kostats_db_path)
     stat = db_path.stat()
     db_info = {
