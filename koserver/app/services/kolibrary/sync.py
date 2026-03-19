@@ -84,6 +84,7 @@ def parse_lua_settings(content: str) -> dict:
     result: dict = {
         "title": "", "authors": "", "series": "", "series_index": None,
         "language": "", "pages": 0, "description": "", "percent_finished": 0.0,
+        "md5": "",
     }
     doc_props_text = _extract_nested_table(content, "doc_props")
     if doc_props_text:
@@ -108,6 +109,20 @@ def parse_lua_settings(content: str) -> dict:
             result["percent_finished"] = min(1.0, float(m.group(1)))
         except ValueError:
             pass
+
+    m = re.search(r'\["partial_md5_checksum"\]\s*=\s*"([^"]+)"', content)
+    if m:
+        result["md5"] = m.group(1)
+
+    # doc_pages as fallback for pages
+    if not result["pages"]:
+        m = re.search(r'\["doc_pages"\]\s*=\s*([0-9]+)', content)
+        if m:
+            try:
+                result["pages"] = int(m.group(1))
+            except ValueError:
+                pass
+
     return result
 
 
@@ -183,12 +198,29 @@ async def _run_sync(device_id: int, db_path: Path, covers_dir: Path, key_path: P
                 for idx, sdr_dir in enumerate(sdr_dirs, 1):
                     book_path = sdr_dir[:-4]  # strip .sdr
                     book_basename = os.path.basename(book_path)
-                    lua_file = f"{sdr_dir}/{book_basename}.lua"
 
                     _status(
                         f"[{idx}/{total}] {book_basename}",
                         books_added=added, books_updated=updated,
                     )
+
+                    # Find the settings lua file: try metadata.<ext>.lua first,
+                    # then <bookname>.lua (older KOReader versions)
+                    lua_file = None
+                    try:
+                        entries = await sftp.readdir(sdr_dir)
+                        lua_names = [
+                            e.filename for e in entries
+                            if e.filename.endswith(".lua") and not e.filename.endswith(".lua.old")
+                        ]
+                        # prefer metadata.*.lua
+                        meta_luas = [n for n in lua_names if n.startswith("metadata.")]
+                        chosen = (meta_luas or lua_names)
+                        if not chosen:
+                            continue
+                        lua_file = f"{sdr_dir}/{chosen[0]}"
+                    except Exception:
+                        continue
 
                     try:
                         stat = await sftp.stat(lua_file)
